@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RoteiroPedagogico",
+  "description": "Output do Autor de Conteúdo — O QUÊ da aula, sem câmera nem LikeC4",
+  "type": "object",
+  "required": ["lesson_id", "title", "objective", "beats"],
+  "additionalProperties": false,
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "Identificador único da aula (slug kebab-case)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Título da aula"
+    },
+    "objective": {
+      "type": "string",
+      "description": "O que o aluno saberá ao final (1 frase)"
+    },
+    "source_chapter": {
+      "type": "string",
+      "description": "Referência ao capítulo de origem (opcional)"
+    },
+    "beats": {
+      "type": "array",
+      "description": "Sequência de beats pedagógicos. 12 mín, 20 máx.",
+      "minItems": 3,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "idea", "content", "concepts_introduced"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^beat-[0-9]{2}$",
+            "description": "beat-01, beat-02, ..."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Rótulo curto para o índice (máx 40 chars)"
+          },
+          "idea": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "A ideia atômica central deste beat (1 frase, máx 120 chars)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Texto markdown do beat. Sem câmera, sem LikeC4."
+          },
+          "concepts_introduced": {
+            "type": "array",
+            "description": "Termos novos introduzidos neste beat (pode ser vazio)",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "description": "Metadados do roteiro",
+      "properties": {
+        "total_concepts": { "type": "integer" },
+        "author_agent": { "type": "string" },
+        "model": { "type": "string" }
+      }
+    }
+  }
+}
