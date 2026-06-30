@@ -1,0 +1,94 @@
+{
+  "id": "lesson-002",
+  "title": "Fluxo ponta a ponta — como uma task percorre o Mind",
+  "version": "4.0",
+  "viewId": "flow",
+  "walkthroughStart": 1,
+  "walkthroughEnd": 12,
+  "steps": [
+    {
+      "id": "step-intro",
+      "label": "O que você vai ver",
+      "camera": { "preset": "overview" },
+      "content": "## O que você vai ver\n\nUma task nasce no Supabase. Ela passa pelo Harness, chega em um agente, é validada pelo Python e o resultado vai pro banco — com evidência verificável.\n\nEste é o **fluxo canônico ponta a ponta** do Mind. Ao invés de descrever os blocos separados, você vai **percorrer o caminho** — aresta por aresta — no próprio diagrama.\n\nRole pra baixo para começar."
+    },
+    {
+      "id": "step-wt-01",
+      "label": "Lucas dispara a task",
+      "camera": { "preset": "walkthrough-start" },
+      "content": "## 1 — Lucas cria e dispara a task\n\nTudo começa aqui: Lucas decide que algo precisa ser feito. Ele (ou um agente) insere uma row em `agent_tasks` com `status = pending`, `to_agent = <quem vai executar>` e as instruções.\n\nO Harness está ouvindo — polling contínuo nessa tabela. Assim que a task aparece no filtro `pending_filter`, o loop acorda."
+    },
+    {
+      "id": "step-wt-02",
+      "label": "Harness reivindica a task",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 2 — Harness Loop → Supabase Tasks\n\nO loop do Harness `reclama` a task: `UPDATE agent_tasks SET status = 'claimed', claimed_by = '...', claimed_at = now()`. Depois marca `running`.\n\nEste passo é crítico: sem ele, dois runners poderiam pegar a mesma task ao mesmo tempo. A transação atômica no Supabase garante exclusividade — só um runner vence a claim."
+    },
+    {
+      "id": "step-wt-03",
+      "label": "Harness Runner entra",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 3 — Harness Loop → Harness Runner\n\nO loop não executa diretamente. Ele **despacha** a task para o Runner: uma camada separada que sabe como invocar agentes de diferentes tipos (Claude, Codex, scripts Python).\n\nPor quê a separação? O Loop gerencia estado (o que executar, quando parar). O Runner gerencia execução (como invocar, coletar output, timeout). Um não precisa saber sobre o outro."
+    },
+    {
+      "id": "step-wt-04",
+      "label": "Runner invoca o agente",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 4 — Harness Runner → Agents\n\nO Runner chama o agente correto para a task. Para `claude_linux`, isso é `claude --resume` com o contexto da task. Para `codex_linux`, é `codex exec`.\n\nO agente recebe a task, faz o trabalho, e retorna um **contrato de saída** — campos obrigatórios: `summary`, `output`, `evidence`, `status`. Se algum campo faltar, o contrato é rejeitado antes de chegar no banco."
+    },
+    {
+      "id": "step-wt-05",
+      "label": "Output vai pro Python Enforce",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 5 — Harness Runner → Python Enforce\n\nO output bruto do agente **não vai direto pro Supabase**. Primeiro passa pelo `python.enforce`: um validador determinístico.\n\nEle checa:\n- Campos obrigatórios presentes?\n- `from_agent` bate com quem deveria executar?\n- `evidence.confidence` definido?\n- `files_changed` é array, não null?\n\nSe qualquer check falhar: `status = error`, mensagem de erro registrada, output rejeitado."
+    },
+    {
+      "id": "step-wt-06",
+      "label": "Output validado gravado",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 6 — Python Enforce → Supabase Outputs\n\nApós validação: `INSERT INTO task_outputs (task_id, from_agent, status, summary, output, evidence, ...)`. Só então a task recebe `status = done`.\n\n**O Supabase é a fonte de verdade final.** Um agente pode ter executado com sucesso internamente, mas enquanto não houver row em `task_outputs` com `status = done`, o trabalho não conta — para nenhum agente, nenhum humano, nenhum sistema."
+    },
+    {
+      "id": "step-wt-07",
+      "label": "Artifacts pesados ancorados",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 7 — Harness Runner → Supabase Artifacts\n\nArquivos grandes, binários ou outputs que não cabem confortavelmente numa row de `task_outputs` vão para `artifacts`.\n\nO Runner ancora esses payloads separadamente e o `task_output.evidence` referencia o `artifact_id`. Quem precisar do arquivo busca por lá — o output continua pequeno e consultável via SQL."
+    },
+    {
+      "id": "step-wt-08",
+      "label": "Lucas desenvolve no Braide",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 8 — Lucas → Braide ACP\n\nEm paralelo ao fluxo de tasks, há outro caminho: desenvolvimento de código e arquitetura.\n\nLucas abre uma sessão no Braide Cockpit. O agente ACP (Codex/GPT) edita arquivos dentro do worktree isolado. Código vai pro git. Decisões de arquitetura vão pro `.c4`.\n\n> Regra fundamental do Braide: nunca misturar as duas coisas. Código no git. Arquitetura no `.c4`."
+    },
+    {
+      "id": "step-wt-09",
+      "label": "Braide promove decisão",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 9 — Braide ACP → Braide Bridge.c4\n\nQuando uma decisão de arquitetura emerge da sessão (um novo componente, uma relação nova entre sistemas), o ACP a transcreve pro arquivo `.c4` dentro do projeto.\n\nO `bridge.c4` é a ponte entre o rascunho da sessão e o blueprint canônico. Ele é revisado e, quando aprovado, promovido."
+    },
+    {
+      "id": "step-wt-10",
+      "label": "Blueprint canônico atualizado",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 10 — Braide Bridge.c4 → LikeC4 Source\n\nO arquivo `.c4` promovido entra no repositório canônico do LikeC4 — o mesmo que gera este diagrama que você está vendo agora.\n\nAo fazer commit, o pipeline de CI começa: o LikeC4 recompila as views, gera os type defs e aciona o worker de publicação."
+    },
+    {
+      "id": "step-wt-11",
+      "label": "Snapshot publicado",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 11 — Python Pipeline → Mind Blueprint Publish\n\nO `python.pipeline` executa a cadeia: `likec4 build → snapshot JSON → Supabase`.\n\nEste é o worker determinístico que garante que a atualização de arquitetura chegue no banco sem intervenção manual. O snapshot publicado é versionado — é possível comparar qualquer versão anterior do blueprint com a atual."
+    },
+    {
+      "id": "step-wt-12",
+      "label": "Snapshot disponível",
+      "camera": { "preset": "walkthrough" },
+      "content": "## 12 — Mind Blueprint Publish → Supabase Snapshots\n\nO snapshot chega em `supabase.snapshots`. Qualquer agente — Claude, Codex, um script Python — pode agora consultar o estado atual da arquitetura sem depender de arquivos locais.\n\nIsso fecha o ciclo: **o que foi construído no Braide, validado pelo Python, agora está disponível para todos os agentes como conhecimento estruturado.**"
+    },
+    {
+      "id": "step-consolidate",
+      "label": "Ciclo completo",
+      "camera": { "preset": "consolidate" },
+      "content": "## O ciclo completo\n\nVocê percorreu o fluxo canônico do Mind — cada seta que viu tem uma regra e um protocolo.\n\n**O que garantem essas regras?**\n\n- **Rastreabilidade:** qualquer task tem evidência verificável no Supabase\n- **Exclusividade:** o mecanismo de claim evita duplicação\n- **Determinismo:** o Python enforce garante que só outputs válidos chegam no banco\n- **Continuidade:** qualquer agente pode retomar de onde outro parou — sem dependência de memória de conversa\n\nEste sistema foi desenhado para não depender de nenhum agente específico. Você pode trocar o Claude por outro — enquanto respeitar o contrato, o ecossistema continua funcionando."
+    }
+  ]
+}
