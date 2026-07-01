@@ -1,0 +1,31 @@
+specification {
+
+  element actor {
+    style {
+      shape person
+      color green
+    }
+  }
+
+  element system {
+    notation 'Sistema'
+    style {
+      opacity 20%
+    }
+  }
+
+  element external-system {
+    notation 'Sistema Externo'
+    style {
+      opacity 20%
+      color muted
+    }
+  }
+
+  element component {
+    notation 'Componente'
+    style {
+      opacity 20%
+    }
+  }
+}
