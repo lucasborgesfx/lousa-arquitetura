@@ -33,12 +33,12 @@ views {
     description '''
       Vista didática do estado alvo.
       Objetivo: separar plataforma, pacote de aula e planta arquitetural.
+      Ferramentas locais de inspeção podem existir, mas ficam fora da arquitetura canônica do produto.
     '''
 
     include
       *,
-      lucas,
-      localViewer
+      lucas
 
     style * {
       color secondary
@@ -47,11 +47,6 @@ views {
 
     style ideal._ {
       color green
-      opacity 100%
-    }
-
-    style localViewer {
-      color blue
       opacity 100%
     }
   }
@@ -79,6 +74,7 @@ views {
     description '''
       Sequência alvo para um MVP limpo.
       Compare esta view com a anterior e observe as diferenças marcadas como DELTA no modelo.
+      A planta `.c4` segue canônica, mas seu viewer local não é parte obrigatória deste fluxo.
     '''
 
     lucas -> ideal.sourceMd 'escreve o material-base da aula'
@@ -89,6 +85,5 @@ views {
     ideal.flowC4 -> ideal.manifest 'define views e focos'
     ideal.manifest -> ideal.platformCore 'plataforma carrega a aula por contrato'
     lucas -> ideal.architectureC4 'versiona a planta da engenharia'
-    ideal.architectureC4 -> localViewer 'viewer local sobe a planta desta repo'
   }
 }

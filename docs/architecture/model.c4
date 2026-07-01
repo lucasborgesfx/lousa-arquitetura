@@ -13,8 +13,8 @@ model {
   localViewer = external-system 'LikeC4 Local Viewer' {
     technology 'likec4 start docs/architecture'
     description '''
-      Forma ideal de visualização local.
-      DELTA-04: a planta do projeto passa a subir a partir desta própria repo.
+      Ferramenta opcional de inspeção local para humanos.
+      Não faz parte da arquitetura canônica da Lousa nem do fluxo ideal do produto.
     '''
   }
 
@@ -144,7 +144,8 @@ model {
       technology 'docs/architecture/model.c4 + model.views.c4'
       description '''
         Planta da engenharia da própria Lousa.
-        DELTA-06: a repo passa a conter sua fonte arquitetural oficial.
+        DELTA-06: a repo passa a conter sua fonte arquitetural oficial,
+        versionada como documentação canônica do projeto.
       '''
     }
 
@@ -165,7 +166,6 @@ model {
     lessonPack -> flowC4 'contém o fluxo'
     lessonPack -> manifest 'contém o contrato final'
     manifest -> platformCore 'app carrega a aula sem hardcode'
-    architectureC4 -> localViewer 'viewer local renderiza a planta'
   }
 
   lucas -> current.platform 'edita e testa o estado atual'
@@ -175,4 +175,5 @@ model {
   lucas -> ideal.sourceMd 'escreve o conteúdo-base da aula'
   lucas -> ideal.flowC4 'desenha o fluxo conceitual da aula'
   lucas -> ideal.architectureC4 'versiona a planta da engenharia'
+  lucas -> localViewer 'opcionalmente inspeciona a planta via ferramenta local'
 }

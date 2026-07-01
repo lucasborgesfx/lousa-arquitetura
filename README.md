@@ -6,6 +6,7 @@ Planta arquitetural do projeto:
 - [`docs/architecture/`](</home/lusga/projects/lousa-arquitetura/docs/architecture>)
 
 Se houver dúvida sobre estrutura, fluxos e fronteiras do sistema, priorizar o `.c4`.
+Os arquivos `.c4` versionados são a planta canônica do projeto; um viewer local do LikeC4, quando usado, é apenas ferramenta opcional de inspeção.
 
 ## O que este projeto é
 
@@ -32,6 +33,7 @@ Isso não significa:
 
 - transformar a Lousa em painel dos outros projetos;
 - usar esta repo como hub dos spikes paralelos;
+- depender de `likec4 start` para o produto existir ou para a aula funcionar;
 - misturar plataforma de estudo com stream geral de arquitetura.
 
 Regra prática:
@@ -121,6 +123,7 @@ Script legado da repo:
 
 Observação:
 o modo `p1` ainda referencia um spike externo de LikeC4 e deve ser tratado como provisório, não como arquitetura canônica da Lousa.
+Mesmo quando um viewer local for útil para inspecionar a planta `.c4`, isso continua sendo apoio de documentação, não componente obrigatório do fluxo ideal do produto.
 
 ## Regra de decisão
 
