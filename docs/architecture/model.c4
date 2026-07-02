@@ -60,8 +60,9 @@ model {
     compiledC4 = component 'LikeC4 Compilado' {
       technology 'lesson-app/src/likec4-views.mjs'
       description '''
-        Artefato gerado versionado dentro da repo.
-        FAIL-06: a repo guarda o compilado, mas não guarda a fonte .c4 canônica.
+        Artefato gerado versionado dentro da plataforma.
+        FAIL-06: a repo já guarda a planta canônica em docs/architecture/,
+        mas o compilado da aula ainda vive em app/src sem fronteira de pacote.
       '''
     }
 
@@ -96,7 +97,7 @@ model {
     '''
 
     platformCore = component 'Plataforma' {
-      technology 'app local com loader por contrato'
+      technology 'app/'
       description '''
         Código da experiência de estudo.
         DELTA-01: a plataforma deixa de carregar conteúdo hardcoded dentro do src.
@@ -104,7 +105,7 @@ model {
     }
 
     lessonPack = component 'Pacote de Aula' {
-      technology 'lessons/<slug>/'
+      technology 'lessons/<lesson-slug>/'
       description '''
         Diretório próprio para uma única aula.
         DELTA-02: conteúdo da aula deixa de ficar espalhado entre root, content/ e src/.
@@ -128,7 +129,15 @@ model {
       technology 'flow.c4'
       description '''
         Fonte textual do fluxo conceitual da aula.
-        DELTA-04: o fluxo deixa de depender de artefato compilado e passa a ser fonte versionada.
+        DELTA-04: o fluxo passa a viver no pacote da aula como fonte versionada.
+      '''
+    }
+
+    generatedFlow = component 'Diagrama Gerado da Aula' {
+      technology 'generated/likec4/likec4-views.mjs'
+      description '''
+        Artefato derivado do flow.c4.
+        DELTA-05: o compilado sai do src da plataforma e passa a morar no pacote da aula.
       '''
     }
 
@@ -136,15 +145,23 @@ model {
       technology 'lesson.json'
       description '''
         Contrato único lido pela plataforma.
-        DELTA-05: a plataforma passa a consumir uma aula por contrato, não por imports soltos.
+        DELTA-06: a plataforma passa a consumir uma aula por contrato, não por imports soltos.
+      '''
+    }
+
+    lessonAssets = component 'Assets da Aula' {
+      technology 'assets/'
+      description '''
+        Arquivos auxiliares próprios da aula.
+        DELTA-06B: textos, diagramas e mídias da aula deixam de se apoiar em assets espalhados pela plataforma.
       '''
     }
 
     architectureC4 = component 'Planta do Projeto' {
-      technology 'docs/architecture/model.c4 + model.views.c4'
+      technology 'docs/architecture/'
       description '''
         Planta da engenharia da própria Lousa.
-        DELTA-06: a repo passa a conter sua fonte arquitetural oficial,
+        DELTA-07: a repo passa a conter sua fonte arquitetural oficial,
         versionada como documentação canônica do projeto.
       '''
     }
@@ -153,18 +170,31 @@ model {
       technology 'fabrica/'
       description '''
         Geração local da aula.
-        DELTA-07: a fábrica passa a produzir artefatos previsíveis dentro do pacote da aula.
+        DELTA-08: a fábrica passa a produzir artefatos previsíveis dentro do pacote da aula.
+      '''
+    }
+
+    legacyArchive = component 'Legado Isolado' {
+      technology 'legacy/'
+      description '''
+        Zona de quarentena para P1 HTML, content/ raiz e scripts históricos.
+        DELTA-09: o legado sai do caminho principal da repo e fica só como referência de migração.
       '''
     }
 
     sourceMd -> localFactory2 'entra como material-base'
     localFactory2 -> scriptMd 'gera ou revisa o roteiro'
+    localFactory2 -> manifest 'produz o contrato final do runtime'
+    flowC4 -> generatedFlow 'gera o artefato de runtime do diagrama'
     scriptMd -> manifest 'define a sequência'
-    flowC4 -> manifest 'define views e focos'
+    generatedFlow -> manifest 'expõe views compiladas do pacote'
     lessonPack -> sourceMd 'contém a fonte'
     lessonPack -> scriptMd 'contém o script'
     lessonPack -> flowC4 'contém o fluxo'
+    lessonPack -> generatedFlow 'contém o artefato derivado'
+    lessonPack -> lessonAssets 'contém os assets da aula'
     lessonPack -> manifest 'contém o contrato final'
+    lessonAssets -> manifest 'fornecem mídias e anexos referenciados'
     manifest -> platformCore 'app carrega a aula sem hardcode'
   }
 
@@ -175,5 +205,6 @@ model {
   lucas -> ideal.sourceMd 'escreve o conteúdo-base da aula'
   lucas -> ideal.flowC4 'desenha o fluxo conceitual da aula'
   lucas -> ideal.architectureC4 'versiona a planta da engenharia'
+  lucas -> ideal.legacyArchive 'consulta só durante migração'
   lucas -> localViewer 'opcionalmente inspeciona a planta via ferramenta local'
 }

@@ -32,7 +32,7 @@ views {
     title 'Lousa Ideal — fluxo alvo para o MVP'
     description '''
       Vista didática do estado alvo.
-      Objetivo: separar plataforma, pacote de aula e planta arquitetural.
+      Objetivo: separar plataforma, pacote de aula, planta arquitetural e legado.
       Ferramentas locais de inspeção podem existir, mas ficam fora da arquitetura canônica do produto.
     '''
 
@@ -47,6 +47,11 @@ views {
 
     style ideal._ {
       color green
+      opacity 100%
+    }
+
+    style ideal.legacyArchive {
+      color amber
       opacity 100%
     }
   }
@@ -80,9 +85,12 @@ views {
     lucas -> ideal.sourceMd 'escreve o material-base da aula'
     ideal.sourceMd -> ideal.localFactory2 'entra na fábrica local'
     ideal.localFactory2 -> ideal.scriptMd 'gera ou revisa o script pedagógico'
+    ideal.localFactory2 -> ideal.manifest 'gera o contrato consumível'
     lucas -> ideal.flowC4 'desenha o fluxo conceitual da aula'
+    ideal.flowC4 -> ideal.generatedFlow 'compila o diagrama do pacote'
     ideal.scriptMd -> ideal.manifest 'define a sequência da aula'
-    ideal.flowC4 -> ideal.manifest 'define views e focos'
+    ideal.lessonAssets -> ideal.manifest 'fornecem anexos e mídias'
+    ideal.generatedFlow -> ideal.manifest 'expõe views compiladas do pacote'
     ideal.manifest -> ideal.platformCore 'plataforma carrega a aula por contrato'
     lucas -> ideal.architectureC4 'versiona a planta da engenharia'
   }
