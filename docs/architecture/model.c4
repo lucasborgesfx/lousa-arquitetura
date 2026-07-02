@@ -1,119 +1,217 @@
 model {
 
-  current = system 'Lousa Atual' {
+  learner = actor 'Aluno' {
+    description 'A pessoa que usa o site: escolhe uma aula, avança passo a passo pela explicação e no fim pode revisar tudo.'
+  }
+
+  current = system 'Como a Lousa Está Hoje' {
     description '''
-      Estado atual da Lousa no repositório:
-      a plataforma, o conteúdo de uma aula específica e o fluxo visual ainda
-      estão acoplados além do ideal para o MVP.
+      Retrato de como o projeto está montado hoje no repositório:
+      o site, o conteúdo de uma aula específica e a parte visual ainda
+      estão misturados mais do que o ideal.
     '''
 
-    platform = component 'Plataforma' {
+    platform = component 'Site que Roda a Aula (hoje)' {
       technology 'lesson-app/ + index.html + start.sh'
-      description 'Superfície atual de execução e leitura da aula.'
+      description 'O programa que hoje abre e mostra a aula na tela.'
     }
 
-    lessonContent = component 'Conteúdo da Aula' {
+    lessonContent = component 'Textos da Aula (soltos)' {
       technology 'content/*.md'
-      description 'Conteúdo textual ainda espalhado fora de um pacote de aula canônico.'
+      description 'Os textos da aula, ainda espalhados fora de um pacote organizado.'
     }
 
-    lessonScript = component 'Script da Aula' {
+    lessonScript = component 'Roteiro da Aula (preso no site)' {
       technology 'lesson-app/src/lesson-story4.json'
-      description 'Sequência pedagógica da aula atual ainda acoplada ao código da plataforma.'
+      description 'A ordem em que a aula é apresentada, hoje ainda presa dentro do código do site.'
     }
 
-    flowSource = component 'Fluxo da Aula' {
+    flowSource = component 'Desenho do Percurso Visual' {
       technology 'viewId=flow + presets de walkthrough'
-      description 'Definição lógica do percurso visual usado pela aula atual.'
+      description 'A definição de qual caminho o diagrama percorre durante a aula.'
     }
 
-    compiledDiagram = component 'Diagrama Compilado' {
+    compiledDiagram = component 'Diagrama Pronto pra Tela' {
       technology 'lesson-app/src/likec4-views.mjs'
-      description 'Artefato compilado do diagrama ainda morando dentro do app.'
+      description 'O diagrama já transformado no formato que a tela consegue mostrar; hoje mora dentro do próprio site.'
     }
 
-    localFactory = component 'Fábrica Local' {
+    localFactory = component 'Oficina que Monta a Aula (local)' {
       technology 'fabrica/'
-      description 'Pipeline local de geração pedagógica ainda sem fronteira final estável com a plataforma.'
+      description 'O conjunto de passos que gera a aula no computador, ainda sem uma separação clara do site.'
     }
 
-    mixedDocs = component 'Documentação Misturada' {
+    mixedDocs = component 'Documentos Misturados' {
       technology 'docs/*.md'
-      description 'Documentos canônicos e documentos transitórios ainda convivem no mesmo espaço.'
+      description 'Documentos importantes e anotações passageiras convivendo no mesmo lugar.'
     }
 
-    lessonContent -> platform 'a plataforma ainda lê conteúdo solto'
-    lessonScript -> platform 'a plataforma ainda importa a aula direto do src'
-    flowSource -> compiledDiagram 'o fluxo é resolvido em artefato compilado'
-    compiledDiagram -> platform 'o app depende do diagrama compilado'
-    localFactory -> lessonScript 'a fábrica ainda não publica para um pacote de aula estável'
-    mixedDocs -> platform 'o contexto do produto ainda vaza para a estrutura atual'
+    lessonContent -> platform 'o site ainda lê texto solto'
+    lessonScript -> platform 'o site ainda puxa a aula de dentro do código'
+    flowSource -> compiledDiagram 'o percurso vira um diagrama pronto pra tela'
+    compiledDiagram -> platform 'o site depende desse diagrama pronto'
+    localFactory -> lessonScript 'a oficina ainda entrega a aula sem um pacote final estável'
+    mixedDocs -> platform 'anotações do produto ainda vazam para dentro do site'
   }
 
-  lousa = system 'Lousa' {
+  lousa = system 'Lousa (como deve ser)' {
     description '''
-      Planta canônica do produto:
-      a plataforma consome uma aula por contrato, e a aula vive como pacote próprio.
+      O desenho definitivo do produto:
+      uma oficina privada transforma material bruto em aula pronta,
+      e o site público só abre a aula já pronta.
     '''
 
-    platformCore = component 'Plataforma' {
-      technology 'app/'
-      description 'Código da experiência de estudo, desacoplado da aula específica.'
+    privateFactory = system 'Oficina Privada (monta as aulas)' {
+      description '''
+        Onde o material bruto vira uma aula pronta.
+        É a parte dos bastidores: fica fechada, ninguém do público acessa.
+      '''
+
+      contentSources = component 'Material de Entrada' {
+        technology 'Markdown, TXT, PDF, DOCX, URL'
+        description 'Os tipos de arquivo que você joga na oficina para virar aula (texto, PDF, DOCX, link). Um link pode trazer também páginas vizinhas do mesmo assunto.'
+      }
+
+      lessonWorkspace = component 'Bancada de Trabalho da Aula' {
+        technology 'fabrica/<slug>/workspace'
+        description 'A área reservada onde uma aula é montada e revisada antes de ficar pronta para publicar.'
+
+        lessonSource = component 'Material Bruto da Aula' {
+          technology 'source.md'
+          description 'O conteúdo original da aula, ainda cru, antes de qualquer tratamento.'
+        }
+
+        scriptMd = component 'Roteiro da Aula (em edição)' {
+          technology 'script.md'
+          description 'A ordem e a narrativa da aula sendo escritas, passo a passo.'
+        }
+
+        flowC4 = component 'Desenho do Diagrama (em edição)' {
+          technology 'flow.c4'
+          description 'O arquivo onde se define o diagrama da aula, ainda sendo desenhado.'
+        }
+      }
+
+      backendPrivate = component 'Motor da Oficina' {
+        technology 'fabrica/'
+        description 'A parte protegida que recebe o material, transforma e publica a aula pronta a partir da bancada.'
+      }
+
+      lessonPackage = component 'Pacote da Aula Pronta' {
+        technology 'lessons/<slug>/'
+        description 'A pasta final com a aula pronta. É a única coisa que sai da oficina e chega à parte pública.'
+
+        generatedDiagram = component 'Diagrama Pronto da Aula' {
+          technology 'generated/likec4-views.mjs'
+          description 'O diagrama já convertido no formato final, gerado a partir do desenho da aula.'
+        }
+
+        lessonAssets = component 'Arquivos de Apoio da Aula' {
+          technology 'assets/'
+          description 'Imagens e anexos que acompanham a aula, publicados junto com ela.'
+        }
+
+        manifest = component 'Arquivo Final da Aula' {
+          technology 'lesson.json'
+          description 'O arquivo pronto que o site abre para mostrar a aula. É a única coisa que a oficina entrega para a parte pública.'
+        }
+      }
+
+      contentSources -> lessonWorkspace.lessonSource 'o material entra como base da aula'
+      lessonWorkspace.lessonSource -> backendPrivate 'o motor processa o material bruto'
+      backendPrivate -> lessonWorkspace.scriptMd 'gera ou revisa o roteiro da aula'
+      lessonWorkspace.flowC4 -> backendPrivate 'o desenho do diagrama entra na conversão'
+      backendPrivate -> lessonPackage.generatedDiagram 'transforma o desenho no diagrama pronto'
+      backendPrivate -> lessonPackage.lessonAssets 'publica as imagens e anexos já tratados'
+      lessonWorkspace.scriptMd -> lessonPackage.manifest 'o roteiro aprovado define a ordem final da aula'
+      lessonPackage.generatedDiagram -> lessonPackage.manifest 'o diagrama pronto entra no arquivo final'
+      lessonPackage.lessonAssets -> lessonPackage.manifest 'os arquivos de apoio entram no arquivo final'
     }
 
-    lessonPackage = component 'Pacote de Aula' {
-      technology 'lessons/<slug>/'
-      description 'Unidade canônica de publicação de uma aula.'
+    publicRuntime = system 'Site Público (mostra as aulas)' {
+      description '''
+        A parte que qualquer aluno acessa: carrega e mostra aulas já prontas.
+        Só depende do pacote entregue pela oficina privada.
+      '''
+
+      platformCore = component 'Base do Site' {
+        technology 'app/'
+        description 'O código da experiência de estudo, separado de qualquer aula específica; é o que segura todas as telas do site.'
+      }
+
+      lessonEntryScreen = component 'Tela de Escolher a Aula' {
+        technology 'launcher + slug/atalho local'
+        description 'Mostra as aulas disponíveis ou para retomar e, ao escolher uma, manda o site abri-la.'
+      }
+
+      lessonOverviewScreen = component 'Tela de Apresentação da Aula' {
+        technology 'lesson.json + resumo da aula'
+        description 'Mostra título, promessa, estrutura e o botão de começar; usa o resumo e a prévia dos passos que vêm no arquivo final da aula.'
+      }
+
+      walkthroughScreen = component 'Tela de Estudo (passo a passo)' {
+        technology 'markdown + diagrama + controles'
+        description 'A tela principal, em duas colunas: mostra o passo atual, o texto e a parte do diagrama que está em foco.'
+      }
+
+      lessonMapScreen = component 'Tela de Mapa e Revisão' {
+        technology 'fluxo navegável + índice de steps'
+        description 'Mostra a visão geral do percurso e deixa pular de bloco em bloco ou de passo em passo sem sair da aula.'
+      }
+
+      completionScreen = component 'Tela de Encerramento' {
+        technology 'resumo + retomada'
+        description 'Fecha a sessão com um resumo, o progresso final e opções de recomeçar, revisar ou trocar de aula.'
+      }
+
+      lessonResolver = component 'Localizador da Aula' {
+        technology 'slug + path local do pacote'
+        description 'Descobre qual pacote de aula abrir a partir do que o aluno escolheu, sem ficar preso a uma aula fixa.'
+      }
+
+      manifestReader = component 'Leitor do Arquivo Final' {
+        technology 'lesson.json'
+        description 'Lê do arquivo final da aula os dados, os passos, os textos e onde está o diagrama. É a única leitura direta que o site precisa fazer.'
+      }
+
+      flowResolver = component 'Abridor do Diagrama' {
+        technology 'generated/likec4/ + defaultView'
+        description 'Abre o diagrama pronto da aula e a primeira vista dele, conforme indicado no arquivo final, sem tocar no arquivo de edição.'
+      }
+
+      walkthroughEngine = component 'Motor do Passo a Passo' {
+        technology 'state machine + camera presets'
+        description 'Controla o avançar, o voltar e o pular, os enquadramentos do diagrama e as trocas entre apresentação, estudo, revisão e fechamento.'
+      }
+
+      learner -> lessonEntryScreen 'escolhe ou retoma uma aula'
+      lessonEntryScreen -> lessonResolver 'manda localizar a aula escolhida'
+      manifestReader -> platformCore 'entrega a aula carregada para a base do site'
+      manifestReader -> lessonOverviewScreen 'alimenta a tela de apresentação'
+      manifestReader -> walkthroughEngine 'entrega a ordem oficial dos passos'
+      flowResolver -> walkthroughScreen 'desenha o diagrama e o primeiro enquadramento'
+      walkthroughEngine -> walkthroughScreen 'mantém passo, texto e progresso em sincronia'
+      lessonOverviewScreen -> walkthroughScreen 'começa o estudo guiado'
+      walkthroughScreen -> lessonMapScreen 'abre o mapa livre e a revisão'
+      lessonMapScreen -> walkthroughEngine 'pede para pular de passo ou de bloco'
+      walkthroughEngine -> completionScreen 'encerra o passo a passo'
+      completionScreen -> lessonOverviewScreen 'recomeça ou revisa a mesma aula'
+      completionScreen -> lessonEntryScreen 'troca para outra aula'
     }
 
-    lessonSource = component 'Fonte da Aula' {
-      technology 'source.md'
-      description 'Material-base da aula.'
-    }
-
-    scriptMd = component 'Script Pedagógico' {
-      technology 'script.md'
-      description 'Sequência narrativa da aula.'
-    }
-
-    flowC4 = component 'Fluxo da Aula' {
-      technology 'flow.c4'
-      description 'Fonte versionada do fluxo conceitual da aula.'
-    }
-
-    generatedDiagram = component 'Diagrama Gerado' {
-      technology 'generated/likec4-views.mjs'
-      description 'Artefato gerado a partir do fluxo da aula.'
-    }
-
-    lessonAssets = component 'Assets da Aula' {
-      technology 'assets/'
-      description 'Arquivos auxiliares da aula.'
-    }
-
-    manifest = component 'Manifesto Consumível' {
-      technology 'lesson.json'
-      description 'Contrato único lido pela plataforma.'
-    }
-
-    localFactory2 = component 'Fábrica Local' {
-      technology 'fabrica/'
-      description 'Pipeline local que gera e organiza os artefatos da aula.'
-    }
-
-    lessonPackage -> lessonSource 'contém a fonte'
-    lessonPackage -> scriptMd 'contém o script'
-    lessonPackage -> flowC4 'contém o fluxo'
-    lessonPackage -> generatedDiagram 'contém o diagrama gerado'
-    lessonPackage -> lessonAssets 'contém os assets'
-    lessonPackage -> manifest 'contém o contrato final'
-
-    lessonSource -> localFactory2 'entra como material-base'
-    localFactory2 -> scriptMd 'gera ou revisa o roteiro'
-    flowC4 -> generatedDiagram 'gera o diagrama consumível'
-    scriptMd -> manifest 'define a sequência da aula'
-    generatedDiagram -> manifest 'expõe o diagrama compilado da aula'
-    lessonAssets -> manifest 'fornecem mídias e anexos'
-    manifest -> platformCore 'a plataforma carrega a aula por contrato'
+    privateFactory.lessonPackage -> publicRuntime.lessonResolver 'o site localiza e abre o pacote pronto da aula'
+    privateFactory.lessonPackage.manifest -> publicRuntime.manifestReader 'o site lê só o arquivo final (lesson.json)'
+    privateFactory.lessonPackage.generatedDiagram -> publicRuntime.flowResolver 'o site abre o diagrama já pronto, sem entrar na bancada privada'
   }
+
+  githubOrigin = external-system 'GitHub (privado)' {
+    description 'Repositório privado onde o código fica guardado e versionado; é a fonte de verdade da oficina e do site.'
+  }
+
+  cloudflarePages = external-system 'Cloudflare Pages' {
+    description 'Serviço que hospeda o site público na internet; entrega o site a partir do que foi montado do repositório.'
+  }
+
+  githubOrigin -> lousa 'guarda e versiona todo o código do produto'
+  lousa.publicRuntime -> cloudflarePages 'o site público é publicado à parte na internet'
 }

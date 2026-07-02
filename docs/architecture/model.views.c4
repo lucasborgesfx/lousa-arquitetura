@@ -1,94 +1,307 @@
 views {
 
   view productCanonical of lousa {
-    title 'Planta Canônica do Produto'
+    title 'Visão Geral do Produto'
     description '''
-      Vista principal da arquitetura da Lousa.
-      Mostra apenas o produto e os artefatos canônicos da aula.
+      A vista principal do produto.
+      Mostra a divisão entre a oficina privada e o site público,
+      e o pacote de aula pronta como a única coisa que passa de um lado para o outro.
     '''
 
-    include
-      *
+    include lousa.privateFactory
+    include lousa.privateFactory.contentSources
+    include lousa.privateFactory.lessonWorkspace
+    include lousa.privateFactory.backendPrivate
+    include lousa.privateFactory.lessonPackage
+    include lousa.privateFactory.lessonPackage.manifest
+    include lousa.publicRuntime
+    include lousa.publicRuntime.platformCore
 
     style * {
       color secondary
       opacity 18%
     }
 
-    style lousa.platformCore {
-      color blue
-      opacity 100%
-    }
-
-    style lousa.lessonPackage {
-      color green
-      opacity 100%
-    }
-
-    style lousa.lessonSource {
-      color green
-      opacity 100%
-    }
-
-    style lousa.scriptMd {
-      color sky
-      opacity 100%
-    }
-
-    style lousa.flowC4 {
-      color indigo
-      opacity 100%
-    }
-
-    style lousa.generatedDiagram {
-      color blue
-      opacity 100%
-    }
-
-    style lousa.lessonAssets {
+    style lousa.privateFactory {
       color amber
       opacity 100%
     }
 
-    style lousa.manifest {
+    style lousa.privateFactory.contentSources {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonWorkspace {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.privateFactory.backendPrivate {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonPackage {
       color green
       opacity 100%
     }
 
-    style lousa.localFactory2 {
-      color amber
+    style lousa.privateFactory.lessonPackage.manifest {
+      color green
+      opacity 100%
+    }
+
+    style lousa.publicRuntime {
+      color blue
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.platformCore {
+      color blue
       opacity 100%
     }
   }
 
   dynamic view productFlow {
-    title 'Fluxo Canônico do Produto'
+    title 'Caminho da Aula, do Bruto ao Site'
     description '''
-      Fluxo arquitetural alvo do MVP:
-      a aula nasce como pacote próprio e a plataforma consome apenas o contrato final.
+      O caminho que a aula deve seguir:
+      o material bruto entra na oficina privada, vira pacote pronto,
+      e o site público carrega só esse pacote.
     '''
 
-    lousa.lessonSource -> lousa.localFactory2 'material-base entra na fábrica'
-    lousa.localFactory2 -> lousa.scriptMd 'roteiro pedagógico é produzido ou refinado'
-    lousa.flowC4 -> lousa.generatedDiagram 'o fluxo da aula é compilado'
-    lousa.scriptMd -> lousa.manifest 'o roteiro alimenta o contrato final'
-    lousa.generatedDiagram -> lousa.manifest 'o diagrama compilado entra no contrato'
-    lousa.lessonAssets -> lousa.manifest 'assets complementam a aula'
-    lousa.manifest -> lousa.platformCore 'a plataforma carrega a aula pronta'
+    lousa.privateFactory.contentSources -> lousa.privateFactory.lessonWorkspace.lessonSource 'o material entra como base da aula'
+    lousa.privateFactory.lessonWorkspace.lessonSource -> lousa.privateFactory.backendPrivate 'o motor processa o material bruto'
+    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonWorkspace.scriptMd 'gera ou revisa o roteiro da aula'
+    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonPackage.generatedDiagram 'transforma o desenho no diagrama pronto'
+    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonPackage.lessonAssets 'publica as imagens e anexos já tratados'
+    lousa.privateFactory.lessonWorkspace.scriptMd -> lousa.privateFactory.lessonPackage.manifest 'o roteiro aprovado define a ordem final da aula'
+    lousa.privateFactory.lessonPackage.generatedDiagram -> lousa.privateFactory.lessonPackage.manifest 'o diagrama pronto entra no arquivo final'
+    lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.manifestReader 'o site lê só o arquivo final'
+    lousa.publicRuntime.manifestReader -> lousa.publicRuntime.platformCore 'a base do site carrega a aula pelo arquivo final'
+  }
+
+  view mvpScreenMap of lousa {
+    title 'Mapa das Telas do Site'
+    description '''
+      Leitura simples das telas do site público.
+      Observações curtas ficam na descrição de cada tela.
+      As regras de navegação ficam nesta vista e na vista de navegação.
+      Rascunhos úteis viram vistas à parte com prefixo `draft`, para não bagunçar a vista principal.
+    '''
+
+    include learner
+    include lousa.publicRuntime.platformCore
+    include lousa.publicRuntime.lessonEntryScreen
+    include lousa.publicRuntime.lessonOverviewScreen
+    include lousa.publicRuntime.walkthroughScreen
+    include lousa.publicRuntime.lessonMapScreen
+    include lousa.publicRuntime.completionScreen
+    include lousa.publicRuntime.lessonResolver
+    include lousa.publicRuntime.manifestReader
+    include lousa.publicRuntime.flowResolver
+    include lousa.publicRuntime.walkthroughEngine
+    include lousa.privateFactory.lessonPackage
+    include lousa.privateFactory.lessonPackage.manifest
+    include lousa.privateFactory.lessonWorkspace.scriptMd
+    include lousa.privateFactory.lessonPackage.generatedDiagram
+    include lousa.privateFactory.lessonPackage.lessonAssets
+
+    style * {
+      color secondary
+      opacity 16%
+    }
+
+    style learner {
+      color green
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.platformCore {
+      color blue
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.lessonEntryScreen {
+      color green
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.lessonOverviewScreen {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.walkthroughScreen {
+      color blue
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.lessonMapScreen {
+      color indigo
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.completionScreen {
+      color sky
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.lessonResolver {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.manifestReader {
+      color green
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.flowResolver {
+      color indigo
+      opacity 100%
+    }
+
+    style lousa.publicRuntime.walkthroughEngine {
+      color indigo
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonPackage {
+      color green
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonPackage.manifest {
+      color green
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonWorkspace.scriptMd {
+      color sky
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonPackage.generatedDiagram {
+      color blue
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonPackage.lessonAssets {
+      color amber
+      opacity 100%
+    }
+  }
+
+  dynamic view mvpNavigation {
+    title 'Como o Aluno Navega pelo Site'
+    description '''
+      A sequência principal da experiência:
+      escolher a aula -> apresentação -> estudo passo a passo -> mapa/revisão -> encerramento.
+      Telas de carregando, vazio e erro ficam anotadas nas descrições, não como telas separadas.
+    '''
+
+    learner -> lousa.publicRuntime.lessonEntryScreen 'entra ou retoma a aula'
+    lousa.publicRuntime.lessonEntryScreen -> lousa.publicRuntime.lessonResolver 'manda localizar a aula'
+    lousa.publicRuntime.lessonResolver -> lousa.privateFactory.lessonPackage.manifest 'abre o pacote pronto e acha o arquivo final'
+    lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.manifestReader 'carrega o resumo e os passos'
+    lousa.publicRuntime.manifestReader -> lousa.publicRuntime.lessonOverviewScreen 'abre a apresentação da aula'
+    lousa.publicRuntime.lessonOverviewScreen -> lousa.publicRuntime.walkthroughScreen 'começa o estudo guiado'
+    lousa.publicRuntime.manifestReader -> lousa.publicRuntime.walkthroughEngine 'entrega a ordem dos passos e os enquadramentos'
+    lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.flowResolver 'diz qual vista do diagrama usar'
+    lousa.privateFactory.lessonPackage.generatedDiagram -> lousa.publicRuntime.flowResolver 'fornece o diagrama pronto'
+    lousa.publicRuntime.flowResolver -> lousa.publicRuntime.walkthroughScreen 'abre o diagrama da aula'
+    lousa.publicRuntime.walkthroughEngine -> lousa.publicRuntime.walkthroughScreen 'avança, volta e mantém a sessão em sincronia'
+    lousa.publicRuntime.walkthroughScreen -> lousa.publicRuntime.lessonMapScreen 'abre o mapa livre e a revisão'
+    lousa.publicRuntime.lessonMapScreen -> lousa.publicRuntime.walkthroughEngine 'pula por bloco ou passo'
+    lousa.publicRuntime.walkthroughEngine -> lousa.publicRuntime.completionScreen 'encerra o passo a passo'
+    lousa.publicRuntime.completionScreen -> lousa.publicRuntime.lessonOverviewScreen 'recomeça ou revisa a mesma aula'
+    lousa.publicRuntime.completionScreen -> lousa.publicRuntime.lessonEntryScreen 'troca para outra aula'
+  }
+
+  dynamic view lessonResolutionFlow {
+    title 'Como o Site Encontra e Monta a Aula'
+    description '''
+      O passo a passo que o site faz por dentro:
+      acha a aula pelo pacote pronto, lê só o `lesson.json` diretamente,
+      resolve o diagrama e os textos pelo arquivo final, e então monta o estudo passo a passo.
+      Nada disso toca a bancada privada da oficina.
+    '''
+
+    learner -> lousa.publicRuntime.lessonEntryScreen 'começa a busca da aula'
+    lousa.publicRuntime.lessonEntryScreen -> lousa.publicRuntime.lessonResolver 'escolhe uma aula'
+    lousa.publicRuntime.lessonResolver -> lousa.privateFactory.lessonPackage.manifest 'acha a aula pronta e expõe o `lesson.json`'
+    lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.manifestReader 'fornece os dados e os passos'
+    lousa.publicRuntime.manifestReader -> lousa.privateFactory.lessonWorkspace.scriptMd 'busca o texto de cada passo'
+    lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.flowResolver 'aponta o diagrama pronto e a vista inicial'
+    lousa.privateFactory.lessonWorkspace.flowC4 -> lousa.privateFactory.lessonPackage.generatedDiagram 'dá origem ao diagrama pronto'
+    lousa.privateFactory.lessonPackage.generatedDiagram -> lousa.publicRuntime.flowResolver 'entrega o diagrama gerado'
+    lousa.privateFactory.lessonPackage.lessonAssets -> lousa.privateFactory.lessonPackage.manifest 'fornecem as imagens usadas'
+    lousa.publicRuntime.manifestReader -> lousa.publicRuntime.walkthroughEngine 'monta a sessão oficial'
+    lousa.publicRuntime.walkthroughEngine -> lousa.publicRuntime.walkthroughScreen 'toca o estudo passo a passo'
+  }
+
+  view deployTarget {
+    title 'Onde Cada Parte Fica Hospedada'
+    description '''
+      O plano de onde cada coisa vive: o GitHub privado guarda o código,
+      o Cloudflare Pages entrega o site público na internet,
+      e a oficina privada fica isolada, montando as aulas nos bastidores.
+    '''
+
+    include githubOrigin
+    include lousa.privateFactory
+    include lousa.publicRuntime
+    include cloudflarePages
+
+    style * {
+      color secondary
+      opacity 20%
+    }
+
+    style githubOrigin {
+      color muted
+      opacity 100%
+    }
+
+    style lousa.privateFactory {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.publicRuntime {
+      color blue
+      opacity 100%
+    }
+
+    style cloudflarePages {
+      color blue
+      opacity 100%
+    }
   }
 
   view migrationComparison {
-    title 'Comparação de Migração'
+    title 'Antes e Depois da Reorganização'
     description '''
-      Vista auxiliar para revisão da migração:
-      compara o estado atual com a planta canônica do produto.
+      Vista de apoio para revisar a mudança:
+      compara como está hoje (em vermelho) com o desenho definitivo do produto (em verde).
     '''
 
-    include
-      current,
-      current.*,
-      lousa,
-      lousa.*
+    include current
+    include current.*
+    include lousa
+    include lousa.privateFactory.contentSources
+    include lousa.privateFactory.lessonWorkspace
+    include lousa.privateFactory.lessonWorkspace.lessonSource
+    include lousa.privateFactory.lessonWorkspace.scriptMd
+    include lousa.privateFactory.lessonWorkspace.flowC4
+    include lousa.privateFactory.backendPrivate
+    include lousa.privateFactory.lessonPackage
+    include lousa.privateFactory.lessonPackage.generatedDiagram
+    include lousa.privateFactory.lessonPackage.lessonAssets
+    include lousa.privateFactory.lessonPackage.manifest
+    include lousa.publicRuntime.platformCore
 
     style * {
       color secondary
@@ -104,5 +317,41 @@ views {
       color green
       opacity 100%
     }
+  }
+
+  dynamic view fronteiraAntes {
+    title 'Fronteira — ANTES da correcao (o site espia a bancada privada)'
+    description '''
+      Problema didatico: hoje, para pegar o texto de cada passo,
+      o Site Publico vai buscar direto no Roteiro em Edicao, que mora na bancada privada.
+      Isso fura a regra: a parte publica nunca deveria entrar nos bastidores da oficina.
+      Compare esta view com "Fronteira — DEPOIS da correcao".
+    '''
+
+    learner -> lousa.publicRuntime.lessonEntryScreen 'comeca a busca da aula'
+    lousa.publicRuntime.lessonEntryScreen -> lousa.publicRuntime.lessonResolver 'escolhe um slug'
+    lousa.publicRuntime.lessonResolver -> lousa.privateFactory.lessonPackage.manifest 'acha a aula pronta (lesson.json)'
+    lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.manifestReader 'le os dados e a lista de passos'
+    lousa.publicRuntime.manifestReader -> lousa.privateFactory.lessonWorkspace.scriptMd 'ERRADO: vai buscar o texto no roteiro privado (bancada)'
+    lousa.publicRuntime.manifestReader -> lousa.publicRuntime.walkthroughEngine 'monta a sessao'
+    lousa.publicRuntime.walkthroughEngine -> lousa.publicRuntime.walkthroughScreen 'toca o passo a passo'
+  }
+
+  dynamic view fronteiraDepois {
+    title 'Fronteira — DEPOIS da correcao (o site so le o pacote pronto)'
+    description '''
+      Correcao: o texto de cada passo passa a sair JA PUBLICADO,
+      dentro do pacote da aula pronta. O site le tudo do arquivo final e dos
+      arquivos de apoio publicados, e NUNCA entra na bancada privada.
+      O roteiro em edicao continua existindo, mas fica fechado nos bastidores.
+    '''
+
+    learner -> lousa.publicRuntime.lessonEntryScreen 'comeca a busca da aula'
+    lousa.publicRuntime.lessonEntryScreen -> lousa.publicRuntime.lessonResolver 'escolhe um slug'
+    lousa.publicRuntime.lessonResolver -> lousa.privateFactory.lessonPackage.manifest 'acha a aula pronta (lesson.json)'
+    lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.manifestReader 'le dados, passos e textos JA PUBLICADOS'
+    lousa.privateFactory.lessonPackage.lessonAssets -> lousa.publicRuntime.manifestReader 'os textos e midias vem do pacote publicado'
+    lousa.publicRuntime.manifestReader -> lousa.publicRuntime.walkthroughEngine 'monta a sessao'
+    lousa.publicRuntime.walkthroughEngine -> lousa.publicRuntime.walkthroughScreen 'toca o passo a passo'
   }
 }
