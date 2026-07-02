@@ -1,20 +1,98 @@
 views {
 
-  view currentState of current {
-    title 'Lousa Hoje — fluxo atual e pontos de falha'
+  view productCanonical of lousa {
+    title 'Planta Canônica do Produto'
     description '''
-      Vista didática do estado atual.
-      Objetivo: mostrar por que plataforma, conteúdo e arquitetura estão misturados.
+      Vista principal da arquitetura da Lousa.
+      Mostra apenas o produto e os artefatos canônicos da aula.
     '''
 
     include
-      *,
-      lucas,
-      spike
+      *
 
     style * {
       color secondary
       opacity 18%
+    }
+
+    style lousa.platformCore {
+      color blue
+      opacity 100%
+    }
+
+    style lousa.lessonPackage {
+      color green
+      opacity 100%
+    }
+
+    style lousa.lessonSource {
+      color green
+      opacity 100%
+    }
+
+    style lousa.scriptMd {
+      color sky
+      opacity 100%
+    }
+
+    style lousa.flowC4 {
+      color indigo
+      opacity 100%
+    }
+
+    style lousa.generatedDiagram {
+      color blue
+      opacity 100%
+    }
+
+    style lousa.lessonAssets {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.manifest {
+      color green
+      opacity 100%
+    }
+
+    style lousa.localFactory2 {
+      color amber
+      opacity 100%
+    }
+  }
+
+  dynamic view productFlow {
+    title 'Fluxo Canônico do Produto'
+    description '''
+      Fluxo arquitetural alvo do MVP:
+      a aula nasce como pacote próprio e a plataforma consome apenas o contrato final.
+    '''
+
+    lousa.lessonSource -> lousa.localFactory2 'material-base entra na fábrica'
+    lousa.localFactory2 -> lousa.scriptMd 'roteiro pedagógico é produzido ou refinado'
+    lousa.flowC4 -> lousa.generatedDiagram 'o fluxo da aula é compilado'
+    lousa.scriptMd -> lousa.manifest 'o roteiro alimenta o contrato final'
+    lousa.generatedDiagram -> lousa.manifest 'o diagrama compilado entra no contrato'
+    lousa.lessonAssets -> lousa.manifest 'assets complementam a aula'
+    lousa.manifest -> lousa.platformCore 'a plataforma carrega a aula pronta'
+  }
+
+  view migrationComparison {
+    title 'Comparação de Migração'
+    description '''
+      Vista auxiliar para revisão da migração:
+      compara o estado atual com a planta canônica do produto.
+    '''
+
+    include
+      current,
+      current.*,
+      lousa,
+      lousa.*
+
+    style * {
+      color secondary
+      opacity 14%
     }
 
     style current._ {
@@ -22,76 +100,9 @@ views {
       opacity 100%
     }
 
-    style spike {
-      color amber
-      opacity 100%
-    }
-  }
-
-  view idealState of ideal {
-    title 'Lousa Ideal — fluxo alvo para o MVP'
-    description '''
-      Vista didática do estado alvo.
-      Objetivo: separar plataforma, pacote de aula, planta arquitetural e legado.
-      Ferramentas locais de inspeção podem existir, mas ficam fora da arquitetura canônica do produto.
-    '''
-
-    include
-      *,
-      lucas
-
-    style * {
-      color secondary
-      opacity 18%
-    }
-
-    style ideal._ {
+    style lousa._ {
       color green
       opacity 100%
     }
-
-    style ideal.legacyArchive {
-      color amber
-      opacity 100%
-    }
-  }
-
-  dynamic view currentFlow {
-    title 'Fluxo atual da Lousa'
-    description '''
-      Sequência real de como o projeto está montado hoje.
-      Use esta view como aula sobre acoplamento e mistura de responsabilidades.
-    '''
-
-    lucas -> current.lessonMd 'edita/consulta markdown legado'
-    current.lessonMd -> current.platform 'protótipo HTML lê esse conteúdo'
-    lucas -> current.lessonScript 'edita o roteiro de uma aula específica'
-    current.lessonScript -> current.platform 'app importa direto do src'
-    current.compiledC4 -> current.flowContent 'entrega a view compilada'
-    current.flowContent -> current.platform 'walkthrough depende do fluxo espalhado'
-    current.docsMixed -> current.platform 'injeta contexto e linguagem errados'
-    current.localFactory -> current.lessonScript 'não fecha o ciclo por contrato'
-    current.platform -> spike 'abre viewer externo para completar a experiência'
-  }
-
-  dynamic view idealFlow {
-    title 'Fluxo ideal da Lousa'
-    description '''
-      Sequência alvo para um MVP limpo.
-      Compare esta view com a anterior e observe as diferenças marcadas como DELTA no modelo.
-      A planta `.c4` segue canônica, mas seu viewer local não é parte obrigatória deste fluxo.
-    '''
-
-    lucas -> ideal.sourceMd 'escreve o material-base da aula'
-    ideal.sourceMd -> ideal.localFactory2 'entra na fábrica local'
-    ideal.localFactory2 -> ideal.scriptMd 'gera ou revisa o script pedagógico'
-    ideal.localFactory2 -> ideal.manifest 'gera o contrato consumível'
-    lucas -> ideal.flowC4 'desenha o fluxo conceitual da aula'
-    ideal.flowC4 -> ideal.generatedFlow 'compila o diagrama do pacote'
-    ideal.scriptMd -> ideal.manifest 'define a sequência da aula'
-    ideal.lessonAssets -> ideal.manifest 'fornecem anexos e mídias'
-    ideal.generatedFlow -> ideal.manifest 'expõe views compiladas do pacote'
-    ideal.manifest -> ideal.platformCore 'plataforma carrega a aula por contrato'
-    lucas -> ideal.architectureC4 'versiona a planta da engenharia'
   }
 }

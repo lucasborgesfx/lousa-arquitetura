@@ -1,210 +1,119 @@
 model {
 
-  lucas = actor 'Lucas'
-
-  spike = external-system 'Spike LikeC4 Externo' {
-    technology 'workspace/spikes/...'
+  current = system 'Lousa Atual' {
     description '''
-      Estado atual de visualização fora da repo.
-      FAIL-08: para ver a planta, a Lousa ainda depende de um diretório externo.
-    '''
-  }
-
-  localViewer = external-system 'LikeC4 Local Viewer' {
-    technology 'likec4 start docs/architecture'
-    description '''
-      Ferramenta opcional de inspeção local para humanos.
-      Não faz parte da arquitetura canônica da Lousa nem do fluxo ideal do produto.
-    '''
-  }
-
-  current = system 'Lousa Hoje' {
-    description '''
-      Retrato do estado atual da repo, com plataforma, conteúdo e arquitetura
-      ainda acoplados de forma confusa.
+      Estado atual da Lousa no repositório:
+      a plataforma, o conteúdo de uma aula específica e o fluxo visual ainda
+      estão acoplados além do ideal para o MVP.
     '''
 
-    platform = component 'Plataforma + App' {
+    platform = component 'Plataforma' {
       technology 'lesson-app/ + index.html + start.sh'
-      description '''
-        Camada atual de interface e execução.
-        FAIL-01: duas superfícies convivem sem fronteira clara (React atual + HTML legado).
-        FAIL-02: o path principal do produto não está óbvio para humano nem para LLM.
-      '''
+      description 'Superfície atual de execução e leitura da aula.'
+    }
+
+    lessonContent = component 'Conteúdo da Aula' {
+      technology 'content/*.md'
+      description 'Conteúdo textual ainda espalhado fora de um pacote de aula canônico.'
     }
 
     lessonScript = component 'Script da Aula' {
       technology 'lesson-app/src/lesson-story4.json'
-      description '''
-        Aula específica hardcoded dentro da plataforma.
-        FAIL-03: roteiro, navegação e conteúdo de uma única aula vivem junto do código do app.
-      '''
+      description 'Sequência pedagógica da aula atual ainda acoplada ao código da plataforma.'
     }
 
-    lessonMd = component 'Conteúdo Aula-MD' {
-      technology 'content/*.md'
-      description '''
-        Markdown usado pelo protótipo legado.
-        FAIL-04: o conteúdo não está organizado como pacote de aula; mistura sobras de outro contexto.
-      '''
+    flowSource = component 'Fluxo da Aula' {
+      technology 'viewId=flow + presets de walkthrough'
+      description 'Definição lógica do percurso visual usado pela aula atual.'
     }
 
-    flowContent = component 'Conteúdo do Fluxo' {
-      technology 'viewId=flow + câmera do walkthrough'
-      description '''
-        Fluxo conceitual consumido pela aula.
-        FAIL-05: o fluxo depende de estrutura espalhada entre JSON da aula, view compilada e controller React.
-      '''
-    }
-
-    compiledC4 = component 'LikeC4 Compilado' {
+    compiledDiagram = component 'Diagrama Compilado' {
       technology 'lesson-app/src/likec4-views.mjs'
-      description '''
-        Artefato gerado versionado dentro da plataforma.
-        FAIL-06: a repo já guarda a planta canônica em docs/architecture/,
-        mas o compilado da aula ainda vive em app/src sem fronteira de pacote.
-      '''
-    }
-
-    docsMixed = component 'Docs Misturados' {
-      technology 'docs/*.md'
-      description '''
-        Especificações e rascunhos convivem no mesmo lugar.
-        FAIL-07: documentos da Lousa e documentos herdados de outro ecossistema não estão isolados.
-      '''
+      description 'Artefato compilado do diagrama ainda morando dentro do app.'
     }
 
     localFactory = component 'Fábrica Local' {
       technology 'fabrica/'
-      description '''
-        Pipeline local de geração pedagógica.
-        FAIL-09: existe capacidade local, mas ainda sem contrato simples e canônico de saída para o app.
-      '''
+      description 'Pipeline local de geração pedagógica ainda sem fronteira final estável com a plataforma.'
     }
 
-    lessonScript -> platform 'app importa a aula direto do src'
-    lessonMd -> platform 'protótipo HTML lê markdown direto'
-    flowContent -> platform 'walkthrough depende desse fluxo'
-    compiledC4 -> flowContent 'fornece a view compilada'
-    docsMixed -> platform 'vaza contexto e vocabulário errado'
-    localFactory -> lessonScript 'poderia alimentar, mas sem contrato fechado'
+    mixedDocs = component 'Documentação Misturada' {
+      technology 'docs/*.md'
+      description 'Documentos canônicos e documentos transitórios ainda convivem no mesmo espaço.'
+    }
+
+    lessonContent -> platform 'a plataforma ainda lê conteúdo solto'
+    lessonScript -> platform 'a plataforma ainda importa a aula direto do src'
+    flowSource -> compiledDiagram 'o fluxo é resolvido em artefato compilado'
+    compiledDiagram -> platform 'o app depende do diagrama compilado'
+    localFactory -> lessonScript 'a fábrica ainda não publica para um pacote de aula estável'
+    mixedDocs -> platform 'o contexto do produto ainda vaza para a estrutura atual'
   }
 
-  ideal = system 'Lousa Ideal para MVP' {
+  lousa = system 'Lousa' {
     description '''
-      Fluxo alvo para separar plataforma, conteúdo de aula e planta arquitetural
-      sem introduzir complexidade desnecessária.
+      Planta canônica do produto:
+      a plataforma consome uma aula por contrato, e a aula vive como pacote próprio.
     '''
 
     platformCore = component 'Plataforma' {
       technology 'app/'
-      description '''
-        Código da experiência de estudo.
-        DELTA-01: a plataforma deixa de carregar conteúdo hardcoded dentro do src.
-      '''
+      description 'Código da experiência de estudo, desacoplado da aula específica.'
     }
 
-    lessonPack = component 'Pacote de Aula' {
-      technology 'lessons/<lesson-slug>/'
-      description '''
-        Diretório próprio para uma única aula.
-        DELTA-02: conteúdo da aula deixa de ficar espalhado entre root, content/ e src/.
-      '''
+    lessonPackage = component 'Pacote de Aula' {
+      technology 'lessons/<slug>/'
+      description 'Unidade canônica de publicação de uma aula.'
     }
 
-    sourceMd = component 'Fonte da Aula' {
+    lessonSource = component 'Fonte da Aula' {
       technology 'source.md'
-      description 'Material-base de estudo da aula.'
+      description 'Material-base da aula.'
     }
 
     scriptMd = component 'Script Pedagógico' {
       technology 'script.md'
-      description '''
-        Sequência narrativa da aula.
-        DELTA-03: o script vira artefato explícito da aula, não detalhe escondido do app.
-      '''
+      description 'Sequência narrativa da aula.'
     }
 
     flowC4 = component 'Fluxo da Aula' {
       technology 'flow.c4'
-      description '''
-        Fonte textual do fluxo conceitual da aula.
-        DELTA-04: o fluxo passa a viver no pacote da aula como fonte versionada.
-      '''
+      description 'Fonte versionada do fluxo conceitual da aula.'
     }
 
-    generatedFlow = component 'Diagrama Gerado da Aula' {
-      technology 'generated/likec4/likec4-views.mjs'
-      description '''
-        Artefato derivado do flow.c4.
-        DELTA-05: o compilado sai do src da plataforma e passa a morar no pacote da aula.
-      '''
-    }
-
-    manifest = component 'Manifesto Consumível' {
-      technology 'lesson.json'
-      description '''
-        Contrato único lido pela plataforma.
-        DELTA-06: a plataforma passa a consumir uma aula por contrato, não por imports soltos.
-      '''
+    generatedDiagram = component 'Diagrama Gerado' {
+      technology 'generated/likec4-views.mjs'
+      description 'Artefato gerado a partir do fluxo da aula.'
     }
 
     lessonAssets = component 'Assets da Aula' {
       technology 'assets/'
-      description '''
-        Arquivos auxiliares próprios da aula.
-        DELTA-06B: textos, diagramas e mídias da aula deixam de se apoiar em assets espalhados pela plataforma.
-      '''
+      description 'Arquivos auxiliares da aula.'
     }
 
-    architectureC4 = component 'Planta do Projeto' {
-      technology 'docs/architecture/'
-      description '''
-        Planta da engenharia da própria Lousa.
-        DELTA-07: a repo passa a conter sua fonte arquitetural oficial,
-        versionada como documentação canônica do projeto.
-      '''
+    manifest = component 'Manifesto Consumível' {
+      technology 'lesson.json'
+      description 'Contrato único lido pela plataforma.'
     }
 
     localFactory2 = component 'Fábrica Local' {
       technology 'fabrica/'
-      description '''
-        Geração local da aula.
-        DELTA-08: a fábrica passa a produzir artefatos previsíveis dentro do pacote da aula.
-      '''
+      description 'Pipeline local que gera e organiza os artefatos da aula.'
     }
 
-    legacyArchive = component 'Legado Isolado' {
-      technology 'legacy/'
-      description '''
-        Zona de quarentena para P1 HTML, content/ raiz e scripts históricos.
-        DELTA-09: o legado sai do caminho principal da repo e fica só como referência de migração.
-      '''
-    }
+    lessonPackage -> lessonSource 'contém a fonte'
+    lessonPackage -> scriptMd 'contém o script'
+    lessonPackage -> flowC4 'contém o fluxo'
+    lessonPackage -> generatedDiagram 'contém o diagrama gerado'
+    lessonPackage -> lessonAssets 'contém os assets'
+    lessonPackage -> manifest 'contém o contrato final'
 
-    sourceMd -> localFactory2 'entra como material-base'
+    lessonSource -> localFactory2 'entra como material-base'
     localFactory2 -> scriptMd 'gera ou revisa o roteiro'
-    localFactory2 -> manifest 'produz o contrato final do runtime'
-    flowC4 -> generatedFlow 'gera o artefato de runtime do diagrama'
-    scriptMd -> manifest 'define a sequência'
-    generatedFlow -> manifest 'expõe views compiladas do pacote'
-    lessonPack -> sourceMd 'contém a fonte'
-    lessonPack -> scriptMd 'contém o script'
-    lessonPack -> flowC4 'contém o fluxo'
-    lessonPack -> generatedFlow 'contém o artefato derivado'
-    lessonPack -> lessonAssets 'contém os assets da aula'
-    lessonPack -> manifest 'contém o contrato final'
-    lessonAssets -> manifest 'fornecem mídias e anexos referenciados'
-    manifest -> platformCore 'app carrega a aula sem hardcode'
+    flowC4 -> generatedDiagram 'gera o diagrama consumível'
+    scriptMd -> manifest 'define a sequência da aula'
+    generatedDiagram -> manifest 'expõe o diagrama compilado da aula'
+    lessonAssets -> manifest 'fornecem mídias e anexos'
+    manifest -> platformCore 'a plataforma carrega a aula por contrato'
   }
-
-  lucas -> current.platform 'edita e testa o estado atual'
-  lucas -> current.lessonScript 'mantém uma aula específica dentro do código'
-  lucas -> spike 'sobe o viewer externo para enxergar a arquitetura hoje'
-
-  lucas -> ideal.sourceMd 'escreve o conteúdo-base da aula'
-  lucas -> ideal.flowC4 'desenha o fluxo conceitual da aula'
-  lucas -> ideal.architectureC4 'versiona a planta da engenharia'
-  lucas -> ideal.legacyArchive 'consulta só durante migração'
-  lucas -> localViewer 'opcionalmente inspeciona a planta via ferramenta local'
 }
