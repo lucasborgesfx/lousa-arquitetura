@@ -24,9 +24,9 @@ if [ "$mode" = "p1" ] || [ "$mode" = "all" ]; then
   npx likec4 start --port 5173 &
   C4_PID=$!
 
-  echo "→ Servindo Lousa P1 em http://localhost:8890…"
+  echo "→ Servindo Lousa P1 (legado) em http://localhost:8890/p1-html/…"
   cd "$LOUSA_DIR"
-  npx --yes serve -p 8890 . &
+  npx --yes serve -p 8890 legacy &
   LOUSA_PID=$!
 fi
 
@@ -36,7 +36,7 @@ echo "╔═══════════════════════�
 echo "║  Lousa de Arquitetura                                ║"
 echo "╠══════════════════════════════════════════════════════╣"
 echo "║  Lesson App (Story 2): http://localhost:5174         ║"
-echo "║  Lousa P1 HTML:        http://localhost:8890         ║"
+echo "║  Lousa P1 HTML (legado):http://localhost:8890/p1-html/║"
 echo "║  LikeC4 standalone:    http://localhost:5173         ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
