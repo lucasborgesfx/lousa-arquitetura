@@ -72,6 +72,11 @@ model {
         description 'Os tipos de arquivo que você joga na oficina para virar aula (texto, PDF, DOCX, link). Um link pode trazer também páginas vizinhas do mesmo assunto.'
       }
 
+      ingestApi = component 'Porta de Entrada da Fábrica' {
+        technology 'upload/API/job'
+        description 'O ponto por onde o material bruto entra na fábrica para ser recebido, validado e colocado em processamento.'
+      }
+
       lessonWorkspace = component 'Bancada de Trabalho da Aula' {
         technology 'fabrica/<slug>/workspace'
         description 'A área reservada onde uma aula é montada e revisada antes de ficar pronta para publicar.'
@@ -93,13 +98,13 @@ model {
       }
 
       backendPrivate = component 'Motor da Oficina' {
-        technology 'fabrica/'
-        description 'A parte protegida que recebe o material, transforma e publica a aula pronta a partir da bancada.'
+        technology 'backend/worker privado'
+        description 'A parte protegida que recebe o material, roda o pipeline de conversão e publica a aula pronta a partir da bancada.'
       }
 
       lessonPackage = component 'Pacote da Aula Pronta' {
-        technology 'lessons/<slug>/'
-        description 'A pasta final com a aula pronta. É a única coisa que sai da oficina e chega à parte pública.'
+        technology 'storage publicado / lessons/<slug>/'
+        description 'O pacote final já publicado com a aula pronta. É a única coisa que sai da oficina e chega à parte pública.'
 
         generatedDiagram = component 'Diagrama Pronto da Aula' {
           technology 'generated/likec4-views.mjs'
@@ -117,7 +122,8 @@ model {
         }
       }
 
-      contentSources -> lessonWorkspace.lessonSource 'o material entra como base da aula'
+      contentSources -> ingestApi 'o material bruto chega por aqui'
+      ingestApi -> lessonWorkspace.lessonSource 'a entrada vira base de trabalho da aula'
       lessonWorkspace.lessonSource -> backendPrivate 'o motor processa o material bruto'
       backendPrivate -> lessonWorkspace.scriptMd 'gera ou revisa o roteiro da aula'
       lessonWorkspace.flowC4 -> backendPrivate 'o desenho do diagrama entra na conversão'
@@ -205,13 +211,19 @@ model {
   }
 
   githubOrigin = external-system 'GitHub (privado)' {
-    description 'Repositório privado onde o código fica guardado e versionado; é a fonte de verdade da oficina e do site.'
+    description 'Repositório privado onde o código, a arquitetura e os docs ficam guardados e versionados. Não é onde a fábrica roda em produção e não é o storage operacional dos uploads dos usuários.'
   }
 
   cloudflarePages = external-system 'Cloudflare Pages' {
-    description 'Serviço que hospeda o site público na internet; entrega o site a partir do que foi montado do repositório.'
+    description 'Serviço que hospeda o site público na internet. Entrega o player/runtime já buildado, mas não roda o pipeline pesado que transforma material bruto em aula.'
+  }
+
+  privateServer = external-system 'Servidor da Fábrica (privado)' {
+    description 'Servidor/VM/container privado onde o backend/worker da fábrica roda de verdade em produção.'
   }
 
   githubOrigin -> lousa 'guarda e versiona todo o código do produto'
   lousa.publicRuntime -> cloudflarePages 'o site público é publicado à parte na internet'
+  githubOrigin -> privateServer 'o código versionado da fábrica é usado no deploy do backend privado'
+  privateServer -> lousa.privateFactory.backendPrivate 'o servidor privado executa o pipeline da fábrica'
 }
