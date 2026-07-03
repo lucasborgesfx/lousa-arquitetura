@@ -95,12 +95,19 @@ Exemplos:
 
 ## Estrutura atual da repo
 
-- `lesson-app/` = app React/Vite atual
-- `fabrica/` = geração local de aulas e harness pedagógico
-- `docs/` = protocolos, design docs e decisões
-- `content/` = conteúdo-base para estudo
-- `index.html` = protótipo anterior em HTML puro
-- `HOME.md` = guarda de contexto para IA/agentes
+Em reorganização (branch `reorg/estrutura-mvp-2026-07-03`), guiada por
+[`docs/repo-structure-mvp-v1.md`](docs/repo-structure-mvp-v1.md):
+
+- `lesson-app/` = app React/Vite atual (ainda não renomeado para `app/`; a plataforma
+  continua com imports hardcoded da aula — desacoplamento é fase futura, não desta task).
+- `lessons/mind-task-flow/` = pacote canônico da aula aprovada (`lesson.json`, `script.md`,
+  `source.md` placeholder, `generated/likec4/`); ainda **não** é a fonte que o app roda —
+  é a materialização do alvo, em paralelo à baseline em `lesson-app/src/`.
+- `fabrica/` = geração local de aulas e harness pedagógico.
+- `docs/` = protocolos, design docs e decisões.
+- `legacy/` = quarentena de artefatos históricos (`p1-html/` = protótipo HTML anterior,
+  `notes/` = conteúdo-base do protótipo P1). Não faz parte do caminho principal do produto.
+- `HOME.md` = guarda de contexto para IA/agentes.
 
 Observação crítica:
 o stream paralelo dos seus outros projetos deve permanecer fora desta repo, em `workspace/spikes/...`.
