@@ -141,7 +141,7 @@ Mitigação:
 - tratá-los como `legacy/notes/` ou como insumo curado;
 - nunca promovê-los automaticamente a `script.md`.
 
-### R4 — inexistência da fonte textual `flow.c4`
+### R4 — inexistência da fonte textual `flow.c4` — ✅ RESOLVIDO (2026-07-03, task F2)
 
 Hoje a aula runtime já depende do compilado, mas a fonte textual da aula não está materializada no pacote.
 
@@ -149,6 +149,13 @@ Mitigação:
 
 - criar `flow.c4` antes de considerar a migração concluída;
 - tratar a ausência dessa fonte como GAP explícito de autoria.
+
+**Resolução:** `lessons/mind-task-flow/flow.c4` criado portando fielmente o bloco
+`dynamic view flow { ... }` e os elementos mínimos de model.c4 necessários, a partir de
+`/home/lusga/workspace/spikes/001-likec4-mind-bootstrap/projects/mind-blueprint-spike/src/`
+(datado de 2026-07-01; diagnóstico de origem na task F1, `agent_tasks.726c2fbe`; uso
+autorizado por Lucas em 2026-07-03). `npx likec4 validate`/`export json` confirmam 12
+arestas, mesmo título e descrição do compilado já aprovado — sem inventar autoria.
 
 ### R5 — documentação antiga continuar ensinando o caminho errado
 
@@ -168,7 +175,7 @@ O refactor físico pode ser considerado fechado quando:
 3. o texto da aula vem de `script.md` por âncoras, sem depender de `content/`;
 4. `lesson-app/` já tiver virado `app/`;
 5. `index.html` e `content/` já não estiverem no caminho principal;
-6. `flow.c4` da aula existir e virar a fonte do compilado;
+6. ✅ `flow.c4` da aula existir e virar a fonte do compilado (resolvido em 2026-07-03, task F2);
 7. a UX aprovada continuar idêntica do ponto de vista do walkthrough.
 
 ## Resumo executivo

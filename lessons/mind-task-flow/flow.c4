@@ -1,0 +1,207 @@
+// Proveniência: bloco `dynamic view flow { ... }` e elementos mínimos de model.c4
+// portados fielmente de
+//   /home/lusga/workspace/spikes/001-likec4-mind-bootstrap/projects/mind-blueprint-spike/src/{model.c4,model.views.c4}
+// (arquivos datados de 2026-07-01, projeto ecossistema-multiagente-likec4 / Mind).
+// Diagnóstico de origem: task F1 (agent_tasks.726c2fbe, task_outputs.d901dd7f).
+// Uso autorizado por Lucas em 2026-07-03 (task F2, agent_tasks.bc1d7f56).
+//
+// Este arquivo é a fonte textual do diagrama desta aula (docs/lesson-contract-mvp-v1.md);
+// não é a arquitetura da plataforma Lousa nem do ecossistema Mind — só o suficiente para
+// a dynamic view "flow" existir como texto versionado, com proveniência citada.
+
+specification {
+
+  element actor {
+    style {
+      shape person
+      color green
+    }
+  }
+
+  element external-system {
+    notation 'Sistema Externo'
+    style {
+      opacity 20%
+      color muted
+    }
+  }
+
+  element component {
+    notation 'Componente'
+    style {
+      opacity 20%
+    }
+  }
+
+  element service
+
+  element system {
+    notation 'Sistema'
+    style {
+      opacity 20%
+    }
+  }
+
+  element database {
+    notation 'Banco de Dados'
+    style {
+      shape storage
+      opacity 30%
+    }
+  }
+
+  element db-table {
+    notation 'Tabela de Banco de Dados'
+    style {
+      shape storage
+    }
+  }
+
+  element cockpit {
+    notation 'Cockpit de Execução Local'
+    style {
+      shape browser
+      color indigo
+    }
+  }
+
+  element executionloop {
+    notation 'Execution Loop /op'
+    style {
+      shape queue
+      color sky
+    }
+  }
+
+  element worker {
+    notation 'Worker / Enforcement'
+    style {
+      shape rectangle
+      color amber
+    }
+  }
+}
+
+model {
+
+  lucas = actor 'Lucas'
+
+  agents = external-system 'Agentes de Execução' {
+    technology 'Hermes / Claude / Codex / futuros workers'
+    description 'Agentes que executam o trabalho e publicam evidências de volta no runtime.'
+  }
+
+  likec4 = external-system 'LikeC4 Blueprint' {
+    technology 'LikeC4 DSL + CLI + MCP'
+    description '''
+      Blueprint arquitetural vivo do ecossistema Mind.
+      Não é o runtime em si; é o modelo estrutural que o orienta.
+    '''
+
+    source = component 'Fonte do Blueprint' {
+      technology 'model.c4 + model.views.c4'
+      description 'Fonte canônica de arquitetura como código, escrita por humanos e agentes.'
+    }
+  }
+
+  python = worker 'Python / Hermes — Enforcement & Pipeline' {
+    technology 'Python · psycopg · worker'
+    description '''
+      Enforcement determinístico de protocolo + pipeline worker.
+      Valida outputs e ownership, aplica contratos e executa a publicação de snapshot.
+    '''
+
+    enforce = component 'Enforcement de Contrato' {
+      technology 'Validação determinística'
+      description 'Verifica contrato, identidade e ownership de execução antes de side-effects.'
+    }
+    pipeline = component 'Worker de Pipeline' {
+      technology 'Worker de publicação'
+      description 'Executa a cadeia LikeC4 → snapshot → Supabase.'
+    }
+  }
+
+  braide = cockpit 'Braide Cockpit' {
+    technology 'Electron + Next.js · agente Codex/GPT via ACP'
+    description '''
+      Cockpit de execução local para código e LikeC4.
+      Humano-no-loop: Lucas desenvolve aqui; o agente ACP gera código.
+      Protocolo anti-bagunça: código vai para o git; o .c4 é o arquivo-ponte Braide → Mind.
+    '''
+
+    acp = component 'Agente ACP' {
+      technology 'Codex / GPT via ACP'
+      description 'Gera e edita código dentro da sessão local.'
+    }
+    bridgeC4 = component 'Ponte .c4' {
+      technology 'arquivo .c4 versionado em git'
+      description 'Handoff arquitetural: só decisão + arquitetura promovidas ao Mind.'
+    }
+  }
+
+  harness = executionloop 'Harness Local /op' {
+    technology 'claude --resume · codex exec · orchestrator.py · tmux · hooks'
+    description '''
+      Execution loop controlado, orientado a tasks do Supabase.
+      Subordinado ao data plane: não é runtime autônomo.
+    '''
+
+    loop = component 'Orquestrador de Jobs' {
+      technology 'orchestrator.py'
+      description 'orquestrador → task → execução → validação → próxima decisão.'
+    }
+    runner = component 'Runner de Agente' {
+      technology 'claude --resume / codex exec'
+      description 'Executa a task reivindicada e produz evidência.'
+    }
+  }
+
+  mind = system 'Mind Runtime' {
+    description 'Superfície de continuidade voltada ao humano e candidata a runtime do ecossistema multiagente.'
+
+    blueprint = service 'Pipeline de Publicação do Blueprint' {
+      technology 'Worker / automação / bridge'
+      description 'Automatiza a cadeia da fonte LikeC4 até um snapshot publicado no Supabase.'
+
+      publish = component 'Publicador Supabase' {
+        technology 'Cliente Supabase / API'
+        description 'Publica o snapshot mais recente e metadados no repositório de continuidade.'
+      }
+    }
+  }
+
+  supabase = database 'Supabase / Estado do /op' {
+    technology 'PostgreSQL / Supabase'
+    description 'Trilha operacional atual: tasks, outputs, artifacts e snapshots.'
+
+    tasks = db-table 'Agent Tasks'
+    outputs = db-table 'Task Outputs'
+    artifacts = db-table 'Artifacts'
+    snapshots = db-table 'Blueprint Snapshots'
+  }
+}
+
+views {
+
+  dynamic view flow {
+    title 'Fluxo típico ponta a ponta — task → execução → evidência → blueprint'
+    description '''
+      Traça o fluxo canônico do desenho híbrido (rascunho T28, refinado T29):
+      Lucas dispara, o Harness executa, o Python valida, o Supabase registra,
+      e a arquitetura promovida pelo Braide retorna ao blueprint LikeC4.
+    '''
+
+    lucas -> harness.loop 'cria/dispara a task'
+    harness.loop -> supabase.tasks 'reivindica e marca running'
+    harness.loop -> harness.runner 'despacha para execução'
+    harness.runner -> agents 'invoca o agente de execução'
+    harness.runner -> python.enforce 'submete output para validação'
+    python.enforce -> supabase.outputs 'grava output validado'
+    harness.runner -> supabase.artifacts 'ancora payloads pesados'
+    lucas -> braide.acp 'desenvolve código/arquitetura via agente ACP'
+    braide.acp -> braide.bridgeC4 'promove decisão de arquitetura'
+    braide.bridgeC4 -> likec4.source 'atualiza o blueprint canônico'
+    python.pipeline -> mind.blueprint.publish 'publica o snapshot atualizado'
+    mind.blueprint.publish -> supabase.snapshots 'snapshot disponível para consumo'
+  }
+}
