@@ -11,6 +11,25 @@ Misturar os três é o que produz aula vagabunda.
 
 ---
 
+## Regra crítica anti-invenção (obrigatória, viola = reprovação automática)
+
+Você NÃO PODE adicionar nenhum fato, número, nome, valor monetário ou detalhe de
+exemplo que não esteja literalmente presente no texto-fonte fornecido.
+
+- Se o texto-fonte fala de "um lote de joias com uma etiqueta mal-lida ('½' virou
+  '2')", você NÃO PODE trocar isso por "dois colares com preços específicos
+  (R$ 200 e R$ 400)" — isso é invenção, não simplificação.
+- Simplificar é **cortar detalhe**, nunca **substituir por outro detalhe que você
+  inventou**. Se precisar de um gancho mais direto, use o próprio fato real do
+  texto-fonte reformulado de forma mais simples — nunca um fato novo.
+- Se o mesmo evento aparece em mais de um beat, as duas versões DEVEM contar
+  exatamente a mesma história com os mesmos números/nomes. Duas versões
+  divergentes do mesmo evento no mesmo roteiro é sinal de invenção.
+- Na dúvida entre "empobrecer o exemplo real" e "inventar um exemplo melhor":
+  **sempre** empobrecer o real. Nunca inventar.
+
+---
+
 ## Estrutura obrigatória de toda aula (contrato pedagógico)
 
 Toda aula DEVE seguir este contrato na ordem:
@@ -48,6 +67,7 @@ Toda aula DEVE seguir este contrato na ordem:
 - Abrir no detalhe sem overview primeiro
 - Misturar "o que é" e "como funciona" no mesmo beat
 - Exceder 6 conceitos novos por aula sem dividir
+- Inventar fatos, números, nomes ou detalhes de exemplo que não estão no texto-fonte (ver regra crítica anti-invenção acima)
 - Texto que descreve visualmente o diagrama (isso é redundância)
 - Beats vagos sem ideia atômica clara
 

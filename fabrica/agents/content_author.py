@@ -141,7 +141,7 @@ def generate_roteiro(
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_message + feedback},
             ],
-            temperature=0.7,
+            temperature=0.2,
             max_tokens=4096,
         )
 
