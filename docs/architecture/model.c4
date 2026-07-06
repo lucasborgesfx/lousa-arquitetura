@@ -12,7 +12,7 @@ model {
     '''
 
     platform = component 'Site que Roda a Aula (hoje)' {
-      technology 'lesson-app/ + index.html + start.sh'
+      technology 'app/ + start.sh'
       description 'O programa que hoje abre e mostra a aula na tela.'
     }
 
@@ -22,7 +22,7 @@ model {
     }
 
     lessonScript = component 'Roteiro da Aula (preso no site)' {
-      technology 'lesson-app/src/lesson-story4.json'
+      technology 'lessons/mind-task-flow/lesson.json (via loader por contrato)'
       description 'A ordem em que a aula é apresentada, hoje ainda presa dentro do código do site.'
     }
 
@@ -32,7 +32,7 @@ model {
     }
 
     compiledDiagram = component 'Diagrama Pronto pra Tela' {
-      technology 'lesson-app/src/likec4-views.mjs'
+      technology 'lessons/mind-task-flow/generated/likec4/likec4-views.mjs (via loader por contrato)'
       description 'O diagrama já transformado no formato que a tela consegue mostrar; hoje mora dentro do próprio site.'
     }
 
