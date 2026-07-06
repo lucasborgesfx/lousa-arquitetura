@@ -1,0 +1,64 @@
+// Proveniência: conteúdo ORIGINAL, escrito para este teste técnico.
+// Não é portado de nenhum spike ou projeto existente — ao contrário de
+// lessons/mind-task-flow/flow.c4, que tem proveniência externa citada.
+//
+// Objetivo: aula mínima de teste (task agent_tasks.8a1ac5bb) para validar que
+// o contrato de aula (lesson.json + loader) generaliza além do único caso
+// testado até agora (mind-task-flow). Assunto propositalmente simples e
+// pedagogicamente irrelevante: ciclo de vida de um Pull Request.
+
+specification {
+
+  element actor {
+    style {
+      shape person
+      color green
+    }
+  }
+
+  element repository {
+    notation 'Repositório'
+    style {
+      shape storage
+      opacity 20%
+    }
+  }
+
+  element component {
+    notation 'Componente'
+    style {
+      opacity 20%
+    }
+  }
+}
+
+model {
+
+  dev = actor 'Dev'
+  reviewer = actor 'Revisor'
+
+  repo = repository 'Repositório Git' {
+    pr = component 'Pull Request' {
+      description 'Proposta de mudança aberta para revisão.'
+    }
+    main = component 'Branch main' {
+      description 'Branch estável, protegida por revisão obrigatória.'
+    }
+  }
+}
+
+views {
+
+  dynamic view flow {
+    title 'Ciclo de vida de um Pull Request'
+    description '''
+      Aula de teste técnico — fluxo mínimo: abrir, revisar/aprovar e fazer merge.
+      Não tem valor pedagógico real; existe só para validar que o contrato
+      de aula generaliza além de mind-task-flow.
+    '''
+
+    dev -> repo.pr 'abre o PR com as mudanças'
+    reviewer -> repo.pr 'revisa e aprova'
+    repo.pr -> repo.main 'faz merge na branch principal'
+  }
+}

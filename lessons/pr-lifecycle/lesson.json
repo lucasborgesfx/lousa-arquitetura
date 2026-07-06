@@ -1,0 +1,75 @@
+{
+  "id": "pr-lifecycle",
+  "title": "Teste técnico — ciclo de vida de um Pull Request",
+  "version": "1.0",
+  "viewId": "flow",
+  "walkthroughStart": 1,
+  "walkthroughEnd": 3,
+  "steps": [
+    {
+      "id": "step-intro",
+      "label": "O que você vai ver",
+      "camera": {
+        "preset": "overview"
+      },
+      "content": "## O que você vai ver\n\nEsta é uma aula de teste técnico, criada só para validar que o contrato de aula (`lesson.json` + loader) generaliza além da aula `mind-task-flow`.\n\nO assunto é propositalmente simples: o ciclo de vida de um Pull Request — abrir, revisar e fazer merge.\n\nRole pra baixo para começar.",
+      "markdown": {
+        "file": "script.md",
+        "anchor": "#step-intro"
+      }
+    },
+    {
+      "id": "step-open",
+      "label": "Dev abre o PR",
+      "camera": {
+        "preset": "walkthrough-start"
+      },
+      "content": "## 1 — Dev abre o PR\n\nO desenvolvedor termina o trabalho numa branch e abre um Pull Request propondo a mudança para revisão.",
+      "markdown": {
+        "file": "script.md",
+        "anchor": "#step-open"
+      }
+    },
+    {
+      "id": "step-review",
+      "label": "Revisor aprova",
+      "camera": {
+        "preset": "walkthrough"
+      },
+      "content": "## 2 — Revisor revisa e aprova\n\nUm revisor lê o diff, comenta se necessário e aprova quando a mudança está pronta para entrar.",
+      "markdown": {
+        "file": "script.md",
+        "anchor": "#step-review"
+      }
+    },
+    {
+      "id": "step-merge",
+      "label": "Merge na main",
+      "camera": {
+        "preset": "walkthrough"
+      },
+      "content": "## 3 — PR é mesclado na main\n\nCom a aprovação registrada, o PR é mesclado na branch principal — a mudança passa a fazer parte do histórico oficial.",
+      "markdown": {
+        "file": "script.md",
+        "anchor": "#step-merge"
+      }
+    },
+    {
+      "id": "step-consolidate",
+      "label": "Ciclo completo",
+      "camera": {
+        "preset": "consolidate"
+      },
+      "content": "## Ciclo completo\n\nVocê percorreu o ciclo mínimo de um Pull Request: abrir, revisar/aprovar e mesclar.\n\nSe isto renderizou corretamente — steps, câmera e diagrama sincronizados — o contrato de aula generalizou sem precisar de nenhum código novo além de trocar o slug carregado.",
+      "markdown": {
+        "file": "script.md",
+        "anchor": "#step-consolidate"
+      }
+    }
+  ],
+  "diagram": {
+    "source": "flow.c4",
+    "generatedModule": "generated/likec4/likec4-views.mjs",
+    "defaultView": "flow"
+  }
+}
