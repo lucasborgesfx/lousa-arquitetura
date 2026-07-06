@@ -98,11 +98,10 @@ Exemplos:
 Em reorganização (branch `reorg/estrutura-mvp-2026-07-03`), guiada por
 [`docs/repo-structure-mvp-v1.md`](docs/repo-structure-mvp-v1.md):
 
-- `lesson-app/` = app React/Vite atual (ainda não renomeado para `app/`; a plataforma
-  continua com imports hardcoded da aula — desacoplamento é fase futura, não desta task).
+- `app/` = plataforma React/Vite atual (ex-`lesson-app/`, renomeada na Fase 3); carrega a
+  aula via loader por contrato (`src/lessonLoader.js`), sem imports hardcoded no `src/`.
 - `lessons/mind-task-flow/` = pacote canônico da aula aprovada (`lesson.json`, `script.md`,
-  `source.md` placeholder, `generated/likec4/`); ainda **não** é a fonte que o app roda —
-  é a materialização do alvo, em paralelo à baseline em `lesson-app/src/`.
+  `flow.c4`, `source.md`, `generated/likec4/`) — já é a fonte que o app roda em produção.
 - `fabrica/` = geração local de aulas e harness pedagógico.
 - `docs/` = protocolos, design docs e decisões.
 - `legacy/` = quarentena de artefatos históricos (`p1-html/` = protótipo HTML anterior,
@@ -117,7 +116,7 @@ o stream paralelo dos seus outros projetos deve permanecer fora desta repo, em `
 App atual:
 
 ```bash
-cd lesson-app
+cd app
 npm install
 npm run dev -- --port 5174
 ```

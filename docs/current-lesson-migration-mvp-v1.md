@@ -173,7 +173,7 @@ O refactor físico pode ser considerado fechado quando:
 1. o app roda a aula a partir de `lessons/mind-task-flow/lesson.json`;
 2. o diagrama é carregado a partir de `generated/likec4/`;
 3. o texto da aula vem de `script.md` por âncoras, sem depender de `content/`;
-4. `lesson-app/` já tiver virado `app/`;
+4. ✅ `lesson-app/` já tiver virado `app/` (resolvido em 2026-07-06, task `d17ebcd8`);
 5. `index.html` e `content/` já não estiverem no caminho principal;
 6. ✅ `flow.c4` da aula existir e virar a fonte do compilado (resolvido em 2026-07-03, task F2);
 7. a UX aprovada continuar idêntica do ponto de vista do walkthrough.

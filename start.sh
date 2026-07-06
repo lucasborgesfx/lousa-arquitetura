@@ -7,7 +7,7 @@ set -e
 
 SPIKE_DIR="/home/lusga/workspace/spikes/001-likec4-mind-bootstrap"
 LOUSA_DIR="/home/lusga/projects/lousa-arquitetura"
-LESSON_DIR="/home/lusga/projects/lousa-arquitetura/lesson-app"
+LESSON_DIR="/home/lusga/projects/lousa-arquitetura/app"
 
 mode="${1:-all}"
 
