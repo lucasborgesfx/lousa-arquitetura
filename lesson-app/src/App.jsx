@@ -12,20 +12,33 @@
  * - Nunca troca viewId — percorre o caminho do fluxo aresta por aresta
  */
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { LikeC4View } from './likec4-views.mjs'
 import DiagramController from './DiagramController'
 import { marked } from 'marked'
-import lesson from './lesson-story4.json'
+import { loadLesson } from './lessonLoader'
 import './App.css'
 
-const steps = lesson.steps
+const LESSON_SLUG = 'mind-task-flow'
 
 export default function App() {
+  const [loaded, setLoaded] = useState(null)
+  const [loadError, setLoadError] = useState(null)
   const [activeIdx, setActiveIdx] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const sectionRefs = useRef([])
   const scrollRef = useRef(null)
   const ignoreIO = useRef(false)
+
+  // ── Loader por contrato: lesson.json fora do src/, resolvendo markdown+anchor
+  //    e o módulo compilado do diagrama (docs/lesson-contract-mvp-v1.md)
+  useEffect(() => {
+    let cancelled = false
+    loadLesson(LESSON_SLUG)
+      .then(result => { if (!cancelled) setLoaded(result) })
+      .catch(err => { if (!cancelled) setLoadError(err) })
+    return () => { cancelled = true }
+  }, [])
+
+  const steps = loaded?.lesson.steps ?? []
 
   // ── IntersectionObserver: trigger ao centro do viewport (P17)
   useEffect(() => {
@@ -46,7 +59,7 @@ export default function App() {
     )
     sections.forEach(s => io.observe(s))
     return () => io.disconnect()
-  }, [])
+  }, [steps.length])
 
   // ── Goto: scroll programático + suprime IO brevemente
   const goto = useCallback((idx) => {
@@ -58,8 +71,25 @@ export default function App() {
   }, [])
 
   const prev = useCallback(() => goto(Math.max(0, activeIdx - 1)), [activeIdx, goto])
-  const next = useCallback(() => goto(Math.min(steps.length - 1, activeIdx + 1)), [activeIdx, goto])
+  const next = useCallback(() => goto(Math.min(steps.length - 1, activeIdx + 1)), [activeIdx, goto, steps.length])
 
+  if (loadError) {
+    return (
+      <div style={{ ...rootStyle, alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#f44747' }}>Erro ao carregar a aula: {loadError.message}</p>
+      </div>
+    )
+  }
+
+  if (!loaded) {
+    return (
+      <div style={{ ...rootStyle, alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#555' }}>Carregando…</p>
+      </div>
+    )
+  }
+
+  const { lesson, LikeC4View, defaultView } = loaded
   const step = steps[activeIdx]
 
   return (
@@ -121,12 +151,12 @@ export default function App() {
         {/* Coluna direita: UMA única LikeC4View, viewId fixo, sem key */}
         <div style={rightStyle}>
           <div style={viewLabelStyle}>
-            LikeC4 — <span style={{color:'#4da3e8'}}>{lesson.viewId}</span>
+            LikeC4 — <span style={{color:'#4da3e8'}}>{defaultView}</span>
             <span style={stepHintStyle}>step {activeIdx + 1} / {steps.length}</span>
           </div>
           <div style={diagramWrapStyle}>
             <LikeC4View
-              viewId={lesson.viewId}
+              viewId={defaultView}
               style={{ width: '100%', height: '100%' }}
               controls={false}
               fitView
