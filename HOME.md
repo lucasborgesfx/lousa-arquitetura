@@ -277,17 +277,17 @@ Regra de operação:
 
 ## Estrutura canônica da repo
 
-Hoje, a leitura correta da repo é:
+Reorganizada fisicamente em 2026-07-03 (branch `reorg/estrutura-mvp-2026-07-03`). Hoje, a leitura correta da repo é:
 
-- `lesson-app/` = app React/Vite atual;
+- `lesson-app/` = app React/Vite atual; desde a Fase 2 (2026-07-06), carrega a aula via loader por contrato (`src/lessonLoader.js`), lendo `lessons/mind-task-flow/` — não tem mais `lesson-story4.json` nem `likec4-views.mjs` hardcoded no `src/`. Ainda não foi renomeado para `app/` (Fase 3, adiada).
+- `lessons/mind-task-flow/` = pacote canônico da aula aprovada (`lesson.json`, `script.md`, `flow.c4`, `source.md`, `generated/likec4/`).
 - `fabrica/` = geração local de aulas e harness pedagógico;
-- `docs/` = decisões, protocolos e especificações;
-- `content/` = material-base de estudo;
-- `index.html` raiz = protótipo anterior, útil como referência, não como centro da evolução.
+- `docs/` = decisões, protocolos e especificações (planta canônica em `docs/architecture/`);
+- `legacy/` = quarentena do legado explícito — `p1-html/index.html` (protótipo HTML anterior) e `notes/` (conteúdo-base do protótipo P1, ex-`content/`). `content/` e `index.html` soltos na raiz não existem mais.
 
 Leitura arquitetural alvo:
 
-- `player/runtime` = executa aula pronta;
+- `player/runtime` (`lesson-app/`, futuro `app/`) = executa aula pronta a partir do pacote (`lessons/<slug>/`);
 - `fábrica/backend` = gera aula a partir de conteúdo bruto;
 - `docs/architecture/` = planta canônica que separa essas duas camadas.
 

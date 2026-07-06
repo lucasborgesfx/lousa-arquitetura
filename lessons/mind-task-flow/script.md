@@ -1,7 +1,7 @@
 # Script — mind-task-flow
 
 > Roteiro pedagogico extraido de `lesson-app/src/lesson-story4.json` (baseline aprovada) na R3 de reorganizacao estrutural.
-> Fonte original permanece intacta em `lesson-app/src/lesson-story4.json`; este arquivo e a representacao curada do mesmo conteudo, referenciada por ancora em `lesson.json`.
+> O arquivo original foi removido do `src/` na limpeza de 2026-07-06 (Fase 2 tornou-o redundante — o app le a aula via `lessons/mind-task-flow/lesson.json`); este `script.md` e a representacao curada e definitiva do mesmo conteudo, referenciada por ancora em `lesson.json`.
 
 <a id="step-intro"></a>
 ## O que você vai ver
