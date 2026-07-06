@@ -4,6 +4,8 @@ views {
   // - view principal: productCanonical (visao geral do produto)
   // - views de detalhe do produto atual: productFlow, mvpScreenMap, mvpNavigation,
   //   lessonResolutionFlow, deployTarget, quemGuardaCodigo, oQueUneTudo
+  // - view do orquestrador da fabrica (SO DESENHO, implementacao ainda pendente
+  //   de aprovacao de Lucas): fabricaOrchestration
   // - view de comparacao de migracao: migrationComparison (antes/depois da reorganizacao)
   // - views de correcao historica (bug ja corrigido, mantidas como registro didatico):
   //   fronteiraAntes, fronteiraDepois
@@ -82,14 +84,90 @@ views {
     '''
 
     lousa.privateFactory.contentSources -> lousa.privateFactory.lessonWorkspace.lessonSource 'o material entra como base da aula'
-    lousa.privateFactory.lessonWorkspace.lessonSource -> lousa.privateFactory.backendPrivate 'o motor processa o material bruto'
-    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonWorkspace.scriptMd 'gera ou revisa o roteiro da aula'
-    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonPackage.generatedDiagram 'transforma o desenho no diagrama pronto'
-    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonPackage.lessonAssets 'publica as imagens e anexos já tratados'
+    lousa.privateFactory.lessonWorkspace.lessonSource -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'o motor processa o material bruto'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.lessonWorkspace.scriptMd 'gera ou revisa o roteiro da aula'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.lessonPackage.generatedDiagram 'transforma o desenho no diagrama pronto'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.lessonPackage.lessonAssets 'publica as imagens e anexos já tratados'
     lousa.privateFactory.lessonWorkspace.scriptMd -> lousa.privateFactory.lessonPackage.manifest 'o roteiro aprovado define a ordem final da aula'
     lousa.privateFactory.lessonPackage.generatedDiagram -> lousa.privateFactory.lessonPackage.manifest 'o diagrama pronto entra no arquivo final'
     lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.manifestReader 'o site lê só o arquivo final'
     lousa.publicRuntime.manifestReader -> lousa.publicRuntime.platformCore 'a base do site carrega a aula pelo arquivo final'
+  }
+
+  dynamic view fabricaOrchestration {
+    title 'Orquestrador da Fábrica — ciclo completo do job (DESENHO, sem implementação ainda)'
+    description '''
+      SÓ ARQUITETURA — nenhum destes componentes está implementado ainda
+      (aguardando revisão e aprovação de Lucas antes de despachar a task de
+      implementação do orchestrator.py).
+
+      Mostra o ciclo completo de 1 job (1 material de origem processado pela fábrica):
+      1) entra pela Porta de Entrada, vira um job pending na Fila de Jobs;
+      2) o Orquestrador pega o próximo job pending (worker sequencial, 1 por vez —
+         MVP sem concorrência, decisão fechada 2026-07-06) e chama os 4 papéis
+         já existentes em sequência fixa e determinística: Autor de Conteúdo →
+         Adaptador de Fluxograma → Diretor de Apresentação → Crítico;
+      3) o Crítico devolve o veredito via Condenador (código puro, sem LLM decidindo o fluxo);
+      4) se APROVADO: publica o lesson.json final no Pacote da Aula Pronta;
+      5) se REPROVADO: o Orquestrador reprocessa a fase indicada por `send_back_to`
+         com o feedback do Crítico (aqui ilustrado voltando pro Autor de Conteúdo —
+         na prática pode ser qualquer um dos 3 papéis geradores, conforme o veredito);
+      6) se esgotar as tentativas de reprocessamento: o job vira `failed` (dead-letter)
+         na Fila de Jobs e o Orquestrador segue pro próximo job — SEM escalonar pra
+         nenhum humano (requisito confirmado por Lucas em 2026-07-06).
+    '''
+
+    lousa.privateFactory.contentSources -> lousa.privateFactory.ingestApi 'material bruto chega'
+    lousa.privateFactory.ingestApi -> lousa.privateFactory.jobStore 'cria job pending'
+    lousa.privateFactory.jobStore -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'entrega o próximo job pending'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'fase 1: gera roteiro_pedagogico.json'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.flowchartAdapter 'fase 2: gera roteiro_mapeado.json'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.presentationDirector 'fase 3: gera lesson.json'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.lessonCritic 'fase 4: avalia contra os 30 princípios'
+    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'devolve veredito (aprovado ou reprovado + send_back_to)'
+    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.lessonPackage.manifest 'APROVADO: publica o lesson.json final'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'REPROVADO: reprocessa com feedback (exemplo: send_back_to=content_author)'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore 'ESGOTOU TENTATIVAS: job -> failed (dead-letter), sem escalonar pra humano, segue pro próximo job'
+
+    style * {
+      color secondary
+      opacity 18%
+    }
+
+    style lousa.privateFactory.jobStore {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.privateFactory.backendPrivate.orquestradorFabrica {
+      color primary
+      opacity 100%
+    }
+
+    style lousa.privateFactory.backendPrivate.contentAuthor {
+      color sky
+      opacity 100%
+    }
+
+    style lousa.privateFactory.backendPrivate.flowchartAdapter {
+      color sky
+      opacity 100%
+    }
+
+    style lousa.privateFactory.backendPrivate.presentationDirector {
+      color sky
+      opacity 100%
+    }
+
+    style lousa.privateFactory.backendPrivate.lessonCritic {
+      color red
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonPackage.manifest {
+      color green
+      opacity 100%
+    }
   }
 
   view mvpScreenMap of lousa {
@@ -305,7 +383,7 @@ views {
     githubOrigin -> lousa.publicRuntime.platformCore 'guarda o codigo do player/site; nao serve aula por si so'
     learner -> lousa.privateFactory.contentSources 'traz material bruto para virar aula'
     lousa.privateFactory.contentSources -> lousa.privateFactory.backendPrivate 'o material entra na fabrica privada'
-    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonPackage 'o backend processa e publica o pacote final da aula'
+    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonPackage.manifest 'o backend processa e publica o pacote final da aula'
     lousa.publicRuntime.platformCore -> cloudflarePages 'o player/site e publicado aqui'
     cloudflarePages -> learner 'entrega o site publico pela internet'
     lousa.privateFactory.lessonPackage.manifest -> lousa.publicRuntime.manifestReader 'o site le o pacote publicado, nao o codigo da oficina'
@@ -336,7 +414,7 @@ views {
 
     githubOrigin -> privateServer 'deploy da fabrica'
     privateServer -> lousa.privateFactory.backendPrivate 'roda pipeline'
-    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonPackage 'publica pacote'
+    lousa.privateFactory.backendPrivate -> lousa.privateFactory.lessonPackage.manifest 'publica pacote'
     githubOrigin -> cloudflarePages 'publica site'
     learner -> cloudflarePages 'o aluno abre o endereco publico'
     cloudflarePages -> lousa.publicRuntime.platformCore 'entrega runtime'

@@ -100,6 +100,64 @@ model {
       backendPrivate = component 'Motor da Oficina' {
         technology 'backend/worker privado'
         description 'A parte protegida que recebe o material, roda o pipeline de conversão e publica a aula pronta a partir da bancada.'
+
+        orquestradorFabrica = component 'Orquestrador da Fábrica' {
+          technology 'state machine Python simples (worker sequencial), fabrica/orchestrator.py (a implementar)'
+          description '''
+            Encadeia os 4 papéis já existentes da fábrica em sequência fixa e determinística:
+            Autor de Conteúdo → Adaptador de Fluxograma → Diretor de Apresentação → Crítico.
+            Não é um grafo de decisão de LLM (decisão fechada 2026-07-06: sem LangGraph) —
+            o roteamento entre papéis é 100% determinístico, decidido em código puro pelo
+            Condenador, nunca por um LLM escolhendo dinamicamente o próximo passo.
+            MVP: worker sequencial, 1 job por vez, sem claim atômico nem múltiplos workers.
+          '''
+        }
+
+        contentAuthor = component 'Autor de Conteúdo' {
+          technology 'fabrica/agents/content_author.py'
+          description 'Papel 1 (O QUÊ): gera o roteiro pedagógico a partir do material bruto.'
+        }
+
+        flowchartAdapter = component 'Adaptador de Fluxograma' {
+          technology 'fabrica/agents/flowchart_adapter.py'
+          description 'Papel 2 (ONDE): mapeia o roteiro pro diagrama LikeC4 compilado da aula.'
+        }
+
+        presentationDirector = component 'Diretor de Apresentação' {
+          technology 'fabrica/agents/presentation_director.py'
+          description 'Papel 3 (COMO): monta o lesson.json final a partir do mapeamento.'
+        }
+
+        lessonCritic = component 'Crítico + Condenador' {
+          technology 'fabrica/agents/lesson_critic.py + fabrica/agents/condemn.py'
+          description '''
+            Papel 4 (gate de qualidade): o Crítico (LLM) avalia o lesson.json contra os 30
+            princípios de UX; o Condenador (Python puro, sem LLM) decide aprovado/reprovado
+            de forma determinística. Reprovação NÃO escala para um humano em produção —
+            só falha o job (dead-letter) e a fila segue pro próximo, conforme requisito
+            confirmado por Lucas em 2026-07-06.
+          '''
+        }
+
+        orquestradorFabrica -> contentAuthor 'chama a fase 1 do job: gera roteiro_pedagogico.json'
+        orquestradorFabrica -> flowchartAdapter 'chama a fase 2 do job: gera roteiro_mapeado.json'
+        orquestradorFabrica -> presentationDirector 'chama a fase 3 do job: gera lesson.json'
+        orquestradorFabrica -> lessonCritic 'chama a fase 4 do job: avalia e decide aprovado/reprovado'
+        lessonCritic -> orquestradorFabrica 'devolve o veredito (aprovado, ou reprovado com send_back_to)'
+        orquestradorFabrica -> contentAuthor 'reprovado: reprocessa a fase indicada por send_back_to, com o feedback do Crítico'
+        orquestradorFabrica -> flowchartAdapter 'reprovado: reprocessa a fase indicada por send_back_to, com o feedback do Crítico'
+        orquestradorFabrica -> presentationDirector 'reprovado: reprocessa a fase indicada por send_back_to, com o feedback do Crítico'
+      }
+
+      jobStore = datastore 'Fila de Jobs da Fábrica' {
+        technology 'tabela de jobs (a implementar) — status pending/running/failed/done + correlation_id'
+        description '''
+          1 job = 1 execução de pipeline pra 1 material de origem.
+          Amarra os commits das 4 fases pelo mesmo correlation_id (gap identificado
+          na pesquisa de arquitetura: hoje os commits de cada papel não têm nada em
+          comum rastreável). Job que esgota as tentativas de reprocessamento vira
+          failed (dead-letter) e a fila segue pro próximo — sem escalonar pra humano.
+        '''
       }
 
       lessonPackage = component 'Pacote da Aula Pronta' {
@@ -124,6 +182,10 @@ model {
 
       contentSources -> ingestApi 'o material bruto chega por aqui'
       ingestApi -> lessonWorkspace.lessonSource 'a entrada vira base de trabalho da aula'
+      ingestApi -> jobStore 'cria um novo job pending pra cada material recebido'
+      jobStore -> backendPrivate.orquestradorFabrica 'entrega o próximo job pending pra processar (worker sequencial, 1 por vez)'
+      backendPrivate.orquestradorFabrica -> jobStore 'atualiza status do job (running/failed/done); esgotou tentativas -> failed (dead-letter), sem escalonar pra humano, segue pro próximo job'
+      backendPrivate.lessonCritic -> lessonPackage.manifest 'aprovado: publica o lesson.json final'
       lessonWorkspace.lessonSource -> backendPrivate 'o motor processa o material bruto'
       backendPrivate -> lessonWorkspace.scriptMd 'gera ou revisa o roteiro da aula'
       lessonWorkspace.flowC4 -> backendPrivate 'o desenho do diagrama entra na conversão'

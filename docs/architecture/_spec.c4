@@ -28,4 +28,12 @@ specification {
       opacity 20%
     }
   }
+
+  element datastore {
+    notation 'Armazém de Dados'
+    style {
+      shape storage
+      opacity 20%
+    }
+  }
 }
