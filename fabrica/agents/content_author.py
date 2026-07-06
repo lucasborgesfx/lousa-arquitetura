@@ -63,6 +63,30 @@ def _extract_json(text: str) -> str:
     raise ValueError("JSON malformado: sem fechamento de '}'")
 
 
+MAX_CONCEPTS_PER_BEAT = 3   # limite local (CLT: carga simultânea por step)
+MAX_CONCEPTS_PER_LESSON = 6  # limite global (design doc v2, seção E)
+
+
+def _normalize_concept(concept: str) -> str:
+    """Normalização simples de string p/ dedupe (case-insensitive, trim)."""
+    return " ".join(str(concept).strip().lower().split())
+
+
+def _unique_concepts(data: dict) -> list[str]:
+    """
+    Junta concepts_introduced de todos os beats e remove duplicatas exatas
+    (após normalização case-insensitive + trim). Retorna as formas normalizadas
+    únicas, na ordem de primeira aparição.
+    """
+    seen: dict[str, None] = {}
+    for beat in data.get("beats", []):
+        for concept in beat.get("concepts_introduced", []):
+            key = _normalize_concept(concept)
+            if key and key not in seen:
+                seen[key] = None
+    return list(seen.keys())
+
+
 def _validate(data: dict, schema: dict) -> list[str]:
     """Retorna lista de erros de validação (vazia = ok)."""
     errors = []
@@ -73,11 +97,22 @@ def _validate(data: dict, schema: dict) -> list[str]:
     # Regra extra: máx 3 conceitos novos por beat (CLT: carga simultânea por step)
     for beat in data.get("beats", []):
         n = len(beat.get("concepts_introduced", []))
-        if n > 3:
+        if n > MAX_CONCEPTS_PER_BEAT:
             errors.append(
                 f"Beat {beat.get('id')} introduz {n} conceitos simultâneos "
-                f"(máx 3 por beat — CLT). Distribuir entre beats."
+                f"(máx {MAX_CONCEPTS_PER_BEAT} por beat — CLT). Distribuir entre beats."
             )
+    # Regra extra: máx 6 conceitos únicos novos por aula inteira (design doc v2, seção E).
+    # Checagem determinística em Python puro — nunca confia no meta.total_concepts
+    # autorrelatado pelo LLM.
+    unique = _unique_concepts(data)
+    if len(unique) > MAX_CONCEPTS_PER_LESSON:
+        errors.append(
+            f"Aula introduz {len(unique)} conceitos únicos no total "
+            f"(máx {MAX_CONCEPTS_PER_LESSON} por aula inteira — design doc seção E). "
+            f"Reduzir o número de conceitos distintos ou focar em menos ideias "
+            f"(conceitos encontrados: {', '.join(unique)})."
+        )
     return errors
 
 
@@ -163,6 +198,9 @@ def generate_roteiro(
 
         last_errors = _validate(data, schema)
         if not last_errors:
+            # Nunca confiar no total_concepts autorrelatado pelo LLM — sobrescreve
+            # com a contagem real (mesma lógica de dedupe usada na validação).
+            data["meta"]["total_concepts"] = len(_unique_concepts(data))
             if verbose:
                 print(f"[content_author] ✓ aprovado na tentativa {attempt}", file=sys.stderr)
             return data
