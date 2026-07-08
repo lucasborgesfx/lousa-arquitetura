@@ -102,13 +102,14 @@ model {
         description 'A parte protegida que recebe o material, roda o pipeline de conversão e publica a aula pronta a partir da bancada.'
 
         orquestradorFabrica = component 'Orquestrador da Fábrica' {
-          technology 'state machine Python simples (worker sequencial), fabrica/orchestrator.py (a implementar)'
+          technology 'state machine Python simples + checkpoint/resume persistente, fabrica/orchestrator.py (a implementar)'
           description '''
-            Encadeia os 4 papéis da fábrica por fatia independente (desde 2026-07-08):
-            Planejador divide o job em N fatias; roteamento 100% determinístico via
-            Condenador, nunca LLM (decisão fechada 2026-07-06, sem LangGraph). Reprovação
-            = cascade-regenerate: estágios após send_back_to são descartados e refeitos
-            do zero, sem versionamento parcial.
+            Encadeia os 4 papéis por fatia independente e trata restart como
+            retomada, não reinício: antes de executar, relê o estado persistido
+            job -> fatia -> fase; fatia ou fase com status done é pulada e seu
+            output é reaproveitado. Reprovação = cascade-regenerate a partir de
+            send_back_to; esgotamento de qualquer fase vira falha DA FATIA,
+            nunca do job inteiro. Só pending/failed volta a rodar.
           '''
         }
 
@@ -145,23 +146,44 @@ model {
           '''
         }
 
-        orquestradorFabrica -> contentAuthor 'chama a fase 1 do job: gera roteiro_pedagogico.json'
-        orquestradorFabrica -> flowchartAdapter 'chama a fase 2 do job: gera roteiro_mapeado.json'
-        orquestradorFabrica -> presentationDirector 'chama a fase 3 do job: gera lesson.json'
-        orquestradorFabrica -> lessonCritic 'chama a fase 4 do job: avalia e decide aprovado/reprovado'
-        lessonCritic -> orquestradorFabrica 'devolve o veredito (aprovado, ou reprovado com send_back_to)'
-        orquestradorFabrica -> contentAuthor 'reprovado: reprocessa a fase indicada por send_back_to, com o feedback do Crítico'
-        orquestradorFabrica -> flowchartAdapter 'reprovado: reprocessa a fase indicada por send_back_to, com o feedback do Crítico'
-        orquestradorFabrica -> presentationDirector 'reprovado: reprocessa a fase indicada por send_back_to, com o feedback do Crítico'
+        orquestradorFabrica -> contentAuthor 'só executa a fase 1 da fatia se ela ainda não estiver done'
+        orquestradorFabrica -> flowchartAdapter 'só executa a fase 2 da fatia se ela ainda não estiver done'
+        orquestradorFabrica -> presentationDirector 'só executa a fase 3 da fatia se ela ainda não estiver done'
+        orquestradorFabrica -> lessonCritic 'só executa a fase 4 da fatia se ela ainda não estiver done'
+        lessonCritic -> orquestradorFabrica 'devolve o veredito da fatia (aprovada, reprovada + send_back_to, ou esgotada)'
+        orquestradorFabrica -> contentAuthor 'send_back_to=content_author: reinicia a fatia desta fase em diante; nada posterior é reaproveitado'
+        orquestradorFabrica -> flowchartAdapter 'send_back_to=flowchart_adapter: reaproveita fase 1 done; reroda só fases 2-4'
+        orquestradorFabrica -> presentationDirector 'send_back_to=presentation_director: reaproveita fases 1-2 done; reroda só fases 3-4'
       }
 
-      jobStore = datastore 'Fila de Jobs da Fábrica' {
-        technology 'tabela de jobs (a implementar) — status pending/running/partial_done/failed/done + correlation_id + slice_tracking'
+      jobStore = datastore 'Estado Persistente da Fábrica' {
+        technology 'state store durável (JSON local ou tabela) — job_id estável obrigatório + escrita atômica (tmp+rename/transação) + lease/lock/CAS por job e fila'
         description '''
-          Fila de jobs; cada job pode gerar N fatias (slice_id, status, send_back_to,
-          retry_count); M/N aprovadas = partial_done, 0/N = failed (dead-letter), sem
-          escalonar pra humano.
+          Fonte de verdade do progresso job -> fatia -> fase. Cada avanço é
+          persistido ANTES da próxima fase: status pending/running/done/failed,
+          output_ref, retry_count, send_back_to e timestamps. Restart relê isso,
+          pula tudo que já ficou done e só reexecuta pending/failed.
         '''
+
+        jobLedger = component 'Registro do Job' {
+          technology 'job_id estável + correlation_id + status geral'
+          description 'Identifica o mesmo job em toda retomada; não permite UUID novo a cada execução.'
+        }
+
+        sliceLedger = component 'Mapa das Fatias' {
+          technology '1 row/objeto por slice_id + status + rework_count + verdict final'
+          description 'Mostra quais fatias já foram aprovadas, falharam ou ainda estão pendentes.'
+        }
+
+        phaseCheckpoints = component 'Checkpoints por Fase' {
+          technology '1 row/objeto por (slice_id, phase) + status + output_ref'
+          description 'Cada fase grava status e referência ao artefato ANTES da próxima; done é reutilizado no restart.'
+        }
+
+        executionLease = component 'Lease / Trava Atômica' {
+          technology 'claim/lock/CAS + escrita tmp+rename'
+          description 'Impede dois workers mexendo no mesmo job/fila ao mesmo tempo e evita corrupção por escrita parcial.'
+        }
       }
 
       lessonPackage = component 'Pacote da Aula Pronta' {
@@ -186,10 +208,16 @@ model {
 
       contentSources -> ingestApi 'o material bruto chega por aqui'
       ingestApi -> lessonWorkspace.lessonSource 'a entrada vira base de trabalho da aula'
-      ingestApi -> jobStore 'cria um novo job pending pra cada material recebido'
-      jobStore -> backendPrivate.orquestradorFabrica 'entrega o próximo job pending pra processar (worker sequencial, 1 por vez)'
-      backendPrivate.orquestradorFabrica -> jobStore 'atualiza status do job (running/failed/done); esgotou tentativas -> failed (dead-letter), sem escalonar pra humano, segue pro próximo job'
-      backendPrivate.lessonCritic -> lessonPackage.manifest 'aprovado: publica o lesson.json final'
+      ingestApi -> jobStore.jobLedger 'cria job_id estável com status pending pra cada material recebido'
+      ingestApi -> jobStore.sliceLedger 'registra as fatias planejadas do job'
+      jobStore.jobLedger -> backendPrivate.orquestradorFabrica 'entrega o mesmo job para iniciar ou retomar (worker sequencial, 1 por vez)'
+      jobStore.sliceLedger -> backendPrivate.orquestradorFabrica 'retomada: fatia done = preserva; pending/failed = reentra'
+      jobStore.phaseCheckpoints -> backendPrivate.orquestradorFabrica 'retomada: fase done = pula e reaproveita output; pending/failed = executa'
+      backendPrivate.orquestradorFabrica -> jobStore.executionLease 'adquire lease/CAS antes de tocar no job ou na fila'
+      backendPrivate.orquestradorFabrica -> jobStore.phaseCheckpoints 'antes da próxima fase grava status/output_ref do que acabou de concluir'
+      backendPrivate.orquestradorFabrica -> jobStore.sliceLedger 'marca a fatia como running/done/failed; falha de fase vira failed da fatia, não do job inteiro'
+      backendPrivate.orquestradorFabrica -> jobStore.jobLedger 'atualiza status do job (running/partial_done/failed/done) preservando as fatias done'
+      backendPrivate.orquestradorFabrica -> lessonPackage.manifest 'M/N fatias done: unifica só os outputs aprovados e publica 1 lesson.json final'
       lessonWorkspace.lessonSource -> backendPrivate 'o motor processa o material bruto'
       backendPrivate -> lessonWorkspace.scriptMd 'gera ou revisa o roteiro da aula'
       lessonWorkspace.flowC4 -> backendPrivate 'o desenho do diagrama entra na conversão'
