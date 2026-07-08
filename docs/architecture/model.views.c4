@@ -4,8 +4,8 @@ views {
   // - view principal: productCanonical (visao geral do produto)
   // - views de detalhe do produto atual: productFlow, mvpScreenMap, mvpNavigation,
   //   lessonResolutionFlow, deployTarget, quemGuardaCodigo, oQueUneTudo
-  // - view do orquestrador da fabrica (SO DESENHO, implementacao ainda pendente
-  //   de aprovacao de Lucas): fabricaOrchestration
+  // - views da fabrica: fabricaOrchestration (overview do fluxo) e
+  //   fabricaStateModel (modelo de estado/checkpoint)
   // - view de comparacao de migracao: migrationComparison (antes/depois da reorganizacao)
   // - views de correcao historica (bug ja corrigido, mantidas como registro didatico):
   //   fronteiraAntes, fronteiraDepois
@@ -94,46 +94,84 @@ views {
     lousa.publicRuntime.manifestReader -> lousa.publicRuntime.platformCore 'a base do site carrega a aula pelo arquivo final'
   }
 
-  dynamic view fabricaOrchestration {
-    title 'Orquestrador da Fábrica — checkpoint + resume por job/fatia/fase'
+  view fabricaStateModel of lousa {
+    title 'Fábrica — Modelo de Estado Persistente'
     description '''
-      ARQUITETURA DE RESILIÊNCIA — desenho-only, sem tocar em Python nesta task.
+      Vista estrutural da retomada.
+      Leia assim: o job tem um registro geral, várias fatias, checkpoints por fase
+      e uma trava para evitar duas execuções concorrentes.
+    '''
 
-      O mesmo job passa a ser retomável porque existe estado persistente job -> fatia -> fase:
+    include lousa.privateFactory.ingestApi
+    include lousa.privateFactory.jobStore.jobLedger
+    include lousa.privateFactory.jobStore.sliceLedger
+    include lousa.privateFactory.jobStore.phaseCheckpoints
+    include lousa.privateFactory.jobStore.executionLease
+    include lousa.privateFactory.backendPrivate.orquestradorFabrica
+    include lousa.privateFactory.lessonPackage.manifest
 
-      1) ingest cria job_id estável e registra as fatias do job;
-      2) orquestrador adquire lease/trava e relê o estado persistido ANTES de rodar;
-      3) fatia done é pulada e reaproveitada; fase done dentro da fatia também é pulada;
-      4) só pending/failed volta a executar;
-      5) cada fase grava status + output_ref ANTES da próxima;
-      6) esgotamento de qualquer fase vira failed da FATIA, nunca do job inteiro;
-      7) resultado final preserva tudo que já estava done: M/N aprovadas = partial_done,
-         0/N aprovadas = failed.
+    style * {
+      color secondary
+      opacity 18%
+    }
 
-      Restart deixa de ser "reprocessar do zero" e passa a ser "continuar do checkpoint".
+    style lousa.privateFactory.ingestApi {
+      color sky
+      opacity 100%
+    }
+
+    style lousa.privateFactory.jobStore.jobLedger {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.privateFactory.jobStore.sliceLedger {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.privateFactory.jobStore.phaseCheckpoints {
+      color indigo
+      opacity 100%
+    }
+
+    style lousa.privateFactory.jobStore.executionLease {
+      color amber
+      opacity 100%
+    }
+
+    style lousa.privateFactory.backendPrivate.orquestradorFabrica {
+      color primary
+      opacity 100%
+    }
+
+    style lousa.privateFactory.lessonPackage.manifest {
+      color green
+      opacity 100%
+    }
+  }
+
+  dynamic view fabricaOrchestration {
+    title 'Fábrica — Fluxo de Retomada'
+    description '''
+      Vista de leitura rápida.
+      A ideia central é: o job volta sempre pelo mesmo `job_id`, relê o estado,
+      pula o que já ficou pronto e publica só as fatias aprovadas.
     '''
 
     lousa.privateFactory.contentSources -> lousa.privateFactory.ingestApi 'material bruto chega'
-    lousa.privateFactory.ingestApi -> lousa.privateFactory.jobStore.jobLedger 'cria job_id estável com status pending'
-    lousa.privateFactory.ingestApi -> lousa.privateFactory.jobStore.sliceLedger 'registra as N fatias do job'
-    lousa.privateFactory.jobStore.jobLedger -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'job novo ou existente entra para iniciar/retomar'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore.executionLease 'adquire lease/CAS + usa escrita atômica antes de tocar no job/fila'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore.phaseCheckpoints 'relê checkpoints: done = skip/reuse; pending/failed = executar'
-    lousa.privateFactory.jobStore.phaseCheckpoints -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'retomada decide o próximo ponto exato da fatia K'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'FATIA K — FASE 1 só se ainda não estiver done'
-    lousa.privateFactory.backendPrivate.contentAuthor -> lousa.privateFactory.jobStore.phaseCheckpoints 'grava K/fase1 = done + output_ref (antes da fase 2)'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.flowchartAdapter 'FATIA K — FASE 2 só se ainda não estiver done'
-    lousa.privateFactory.backendPrivate.flowchartAdapter -> lousa.privateFactory.jobStore.phaseCheckpoints 'grava K/fase2 = done + output_ref (antes da fase 3)'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.presentationDirector 'FATIA K — FASE 3 só se ainda não estiver done'
-    lousa.privateFactory.backendPrivate.presentationDirector -> lousa.privateFactory.jobStore.phaseCheckpoints 'grava K/fase3 = done + output_ref (antes da fase 4)'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.lessonCritic 'FATIA K — FASE 4 só se ainda não estiver done'
-    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.jobStore.phaseCheckpoints 'grava K/fase4 = done/failed + verdict + send_back_to'
-    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'veredito da fatia K: aprovada, reprovada, ou esgotada'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.flowchartAdapter 'send_back_to=flowchart_adapter: reaproveita fase 1 done; reroda só 2-4'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.presentationDirector 'send_back_to=presentation_director: reaproveita fases 1-2 done; reroda só 3-4'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore.sliceLedger 'aprovada = slice done; esgotada em qualquer fase = slice failed; outras fatias seguem'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore.jobLedger 'job continua running/partial_done preservando tudo que já estava done'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.lessonPackage.manifest 'M/N fatias done: unifica só os outputs aprovados preservados no resume'
+    lousa.privateFactory.ingestApi -> lousa.privateFactory.jobStore.jobLedger 'abre o mesmo job_id para iniciar ou retomar'
+    lousa.privateFactory.jobStore.jobLedger -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'orquestrador pega o job'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore.executionLease 'trava o job'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore.phaseCheckpoints 'relê estado: done = pula; pendente = roda'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'fase 1, se precisar'
+    lousa.privateFactory.backendPrivate.contentAuthor -> lousa.privateFactory.backendPrivate.flowchartAdapter 'fase 2, se precisar'
+    lousa.privateFactory.backendPrivate.flowchartAdapter -> lousa.privateFactory.backendPrivate.presentationDirector 'fase 3, se precisar'
+    lousa.privateFactory.backendPrivate.presentationDirector -> lousa.privateFactory.backendPrivate.lessonCritic 'fase 4, se precisar'
+    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'aprova, reprova ou esgota a fatia'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore.phaseCheckpoints 'salva checkpoint depois de cada fase'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore.sliceLedger 'preserva slices done e falha só a fatia'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.lessonPackage.manifest 'unifica só as fatias aprovadas'
 
     style * {
       color secondary

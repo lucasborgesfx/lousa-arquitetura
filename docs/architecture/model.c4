@@ -69,12 +69,12 @@ model {
 
       contentSources = component 'Material de Entrada' {
         technology 'Markdown, TXT, PDF, DOCX, URL'
-        description 'Os tipos de arquivo que você joga na oficina para virar aula (texto, PDF, DOCX, link). Um link pode trazer também páginas vizinhas do mesmo assunto.'
+        description 'Material bruto aceito pela fábrica.'
       }
 
       ingestApi = component 'Porta de Entrada da Fábrica' {
         technology 'upload/API/job'
-        description 'O ponto por onde o material bruto entra na fábrica para ser recebido, validado e colocado em processamento.'
+        description 'Recebe o material e abre um job.'
       }
 
       lessonWorkspace = component 'Bancada de Trabalho da Aula' {
@@ -102,48 +102,32 @@ model {
         description 'A parte protegida que recebe o material, roda o pipeline de conversão e publica a aula pronta a partir da bancada.'
 
         orquestradorFabrica = component 'Orquestrador da Fábrica' {
-          technology 'state machine Python simples + checkpoint/resume persistente, fabrica/orchestrator.py (a implementar)'
+          technology 'worker sequencial + checkpoint/resume'
           description '''
-            Encadeia os 4 papéis por fatia independente e trata restart como
-            retomada, não reinício: antes de executar, relê o estado persistido
-            job -> fatia -> fase; fatia ou fase com status done é pulada e seu
-            output é reaproveitado. Reprovação = cascade-regenerate a partir de
-            send_back_to; esgotamento de qualquer fase vira falha DA FATIA,
-            nunca do job inteiro. Só pending/failed volta a rodar.
+            Lê o estado persistido do job, pula o que já está done e só roda o
+            que falta. Reprovação reinicia da fase indicada; esgotamento falha
+            só a fatia.
           '''
         }
 
         contentAuthor = component 'Autor de Conteúdo' {
           technology 'fabrica/agents/content_author.py'
-          description '''
-            Papel 1 (O QUÊ): gera 1 ou N roteiros pedagógicos (fan-out por fatia,
-            desde 2026-07-08) a partir do material bruto.
-          '''
+          description 'Fase 1: gera o roteiro pedagógico da fatia.'
         }
 
         flowchartAdapter = component 'Adaptador de Fluxograma' {
           technology 'fabrica/agents/flowchart_adapter.py'
-          description '''
-            Papel 2 (ONDE): mapeia cada roteiro pro diagrama LikeC4, por fatia
-            individual (sequência C2 contígua da fatia, não da aula inteira).
-          '''
+          description 'Fase 2: mapeia a fatia para o diagrama.'
         }
 
         presentationDirector = component 'Diretor de Apresentação' {
           technology 'fabrica/agents/presentation_director.py'
-          description '''
-            Papel 3 (COMO): monta o lesson.json de cada fatia (sub-aula); o
-            Orquestrador une as aprovadas com numeração continuada.
-          '''
+          description 'Fase 3: monta a sub-aula da fatia.'
         }
 
         lessonCritic = component 'Crítico + Condenador' {
           technology 'fabrica/agents/lesson_critic.py + fabrica/agents/condemn.py'
-          description '''
-            Papel 4 (gate de qualidade): Crítico (LLM) avalia contra os 30 princípios,
-            Condenador (código puro) decide aprovado/reprovado/esgotado por fatia —
-            reprovação nunca escala pra humano.
-          '''
+          description 'Fase 4: aprova, reprova ou esgota a fatia.'
         }
 
         orquestradorFabrica -> contentAuthor 'só executa a fase 1 da fatia se ela ainda não estiver done'
@@ -157,32 +141,29 @@ model {
       }
 
       jobStore = datastore 'Estado Persistente da Fábrica' {
-        technology 'state store durável (JSON local ou tabela) — job_id estável obrigatório + escrita atômica (tmp+rename/transação) + lease/lock/CAS por job e fila'
+        technology 'JSON local ou tabela + escrita atômica + lock'
         description '''
-          Fonte de verdade do progresso job -> fatia -> fase. Cada avanço é
-          persistido ANTES da próxima fase: status pending/running/done/failed,
-          output_ref, retry_count, send_back_to e timestamps. Restart relê isso,
-          pula tudo que já ficou done e só reexecuta pending/failed.
+          Fonte de verdade do progresso job -> fatia -> fase.
         '''
 
         jobLedger = component 'Registro do Job' {
-          technology 'job_id estável + correlation_id + status geral'
-          description 'Identifica o mesmo job em toda retomada; não permite UUID novo a cada execução.'
+          technology 'job_id estável + status'
+          description 'Identifica o mesmo job em toda retomada.'
         }
 
         sliceLedger = component 'Mapa das Fatias' {
-          technology '1 row/objeto por slice_id + status + rework_count + verdict final'
-          description 'Mostra quais fatias já foram aprovadas, falharam ou ainda estão pendentes.'
+          technology 'slice_id + status + retries'
+          description 'Mostra o estado de cada fatia.'
         }
 
         phaseCheckpoints = component 'Checkpoints por Fase' {
-          technology '1 row/objeto por (slice_id, phase) + status + output_ref'
-          description 'Cada fase grava status e referência ao artefato ANTES da próxima; done é reutilizado no restart.'
+          technology '(slice_id, phase) + status + output_ref'
+          description 'Guarda o ponto exato de retomada.'
         }
 
         executionLease = component 'Lease / Trava Atômica' {
-          technology 'claim/lock/CAS + escrita tmp+rename'
-          description 'Impede dois workers mexendo no mesmo job/fila ao mesmo tempo e evita corrupção por escrita parcial.'
+          technology 'claim/lock/CAS'
+          description 'Impede concorrência e escrita parcial.'
         }
       }
 
@@ -202,7 +183,7 @@ model {
 
         manifest = component 'Arquivo Final da Aula' {
           technology 'lesson.json'
-          description 'O arquivo pronto que o site abre para mostrar a aula. É a única coisa que a oficina entrega para a parte pública.'
+          description 'A aula final publicada para o site.'
         }
       }
 
