@@ -1,0 +1,17 @@
+{
+  "job_id": "budget-cap-e2e",
+  "source_file": "fabrica/test_data/cap_harness_loop.md",
+  "tema": "Harness Loop do Mind",
+  "objetivo": "Entender como o Harness Loop busca, reivindica, executa e valida tasks do Mind sem perder rastreabilidade.",
+  "nivel": "intermediário",
+  "view_id": "flow",
+  "diagram_source_file": "lessons/mind-task-flow/flow.c4",
+  "diagram_module_file": "lessons/mind-task-flow/generated/likec4/likec4-views.mjs",
+  "diagram_source": "flow.c4",
+  "diagram_module": "generated/likec4/likec4-views.mjs",
+  "publish_dir": ".tmp/fabrica-e2e/budget-cap",
+  "run_dir": "fabrica/runs/budget-cap-e2e",
+  "version": "1.0",
+  "max_reworks": 2,
+  "max_llm_calls": 1
+}

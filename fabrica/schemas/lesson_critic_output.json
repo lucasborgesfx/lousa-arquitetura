@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LessonCriticOutput",
+  "description": "Output cru do Crítico (LLM) antes do enriquecimento determinístico do harness (score_total/violations são calculados em Python, nunca confiados ao autorrelato do LLM — mesmo padrão anti-sycophancy usado em content_author.py/meta.total_concepts).",
+  "type": "object",
+  "required": ["principles", "suggestions"],
+  "additionalProperties": false,
+  "properties": {
+    "principles": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "description": "Exatamente 1 entrada por princípio, P1..P30, nesta ordem",
+      "items": {
+        "type": "object",
+        "required": ["principle", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "principle": {
+            "type": "string",
+            "pattern": "^P([1-9]|[12][0-9]|30)$"
+          },
+          "status": { "enum": ["PASS", "PARTIAL", "FAIL"] },
+          "step": { "type": ["integer", "null"], "description": "índice 1-based do step envolvido, se aplicável" },
+          "justification": { "type": ["string", "null"], "description": "evidência concreta obrigatória para PASS em princípios subjetivos" },
+          "field": { "type": ["string", "null"], "description": "ex: steps[3].content" },
+          "issue": { "type": ["string", "null"] },
+          "instruction": { "type": ["string", "null"] },
+          "send_back_to": {
+            "type": ["string", "null"],
+            "enum": ["content_author", "flowchart_adapter", "presentation_director", null]
+          }
+        }
+      }
+    },
+    "suggestions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

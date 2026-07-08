@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RoteiroMapeado",
+  "description": "Output do Adaptador de Fluxograma — ONDE cada beat aponta no diagrama LikeC4. Conteúdo pedagógico (label/idea/content/concepts_introduced) é sempre herdado do roteiro_pedagogico original, nunca reescrito por este agente.",
+  "type": "object",
+  "required": ["lesson_id", "title", "viewId", "beats"],
+  "additionalProperties": false,
+  "properties": {
+    "lesson_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "description": "Herdado verbatim do roteiro_pedagogico.title — o Adaptador nunca reescreve"
+    },
+    "objective": {
+      "type": "string",
+      "description": "Herdado verbatim do roteiro_pedagogico.objective — o Adaptador nunca reescreve"
+    },
+    "viewId": {
+      "type": ["string", "null"],
+      "description": "id da view LikeC4 (compilada) usada por esta aula, ou null se a aula não tem diagrama"
+    },
+    "walkthroughStart": {
+      "type": ["integer", "null"],
+      "description": "índice (1-based) da primeira aresta do walkthrough, se viewId for dynamic"
+    },
+    "walkthroughEnd": {
+      "type": ["integer", "null"],
+      "description": "índice (1-based) da última aresta do walkthrough, se viewId for dynamic"
+    },
+    "beats": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "idea", "content", "concepts_introduced", "mapping"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^beat-[0-9]{2}$"
+          },
+          "label": { "type": "string" },
+          "idea": { "type": "string" },
+          "content": { "type": "string" },
+          "concepts_introduced": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "mapping": {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": false,
+            "description": "ONDE este beat aponta no diagrama. NÃO define preset literal de câmera nem acessibilidade — isso é do Diretor de Apresentação.",
+            "properties": {
+              "type": {
+                "enum": [
+                  "overview",
+                  "walkthrough-start",
+                  "walkthrough",
+                  "focus",
+                  "cluster",
+                  "consolidate"
+                ]
+              },
+              "edgeIndex": {
+                "type": ["integer", "null"],
+                "description": "obrigatório e != null quando type é walkthrough-start ou walkthrough; índice 1-based da aresta real na dynamic view"
+              },
+              "node": {
+                "type": ["string", "null"],
+                "description": "FQN único em foco, quando type=focus"
+              },
+              "nodes": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "FQNs em foco, quando type=cluster"
+              }
+            }
+          }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "adapter_agent": { "type": "string" },
+        "model": { "type": "string" }
+      }
+    }
+  }
+}
