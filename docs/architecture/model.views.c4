@@ -95,39 +95,50 @@ views {
   }
 
   dynamic view fabricaOrchestration {
-    title 'Orquestrador da Fábrica — ciclo completo do job (DESENHO, sem implementação ainda)'
+    title 'Orquestrador da Fábrica — ciclo N-fatias-por-job (ATUALIZADO 2026-07-08)'
     description '''
-      SÓ ARQUITETURA — nenhum destes componentes está implementado ainda
-      (aguardando revisão e aprovação de Lucas antes de despachar a task de
-      implementação do orchestrator.py).
+      ARQUITETURA ATUALIZADA — reflete a mudança de 2026-07-08 com o Planejador de Escopo.
 
-      Mostra o ciclo completo de 1 job (1 material de origem processado pela fábrica):
-      1) entra pela Porta de Entrada, vira um job pending na Fila de Jobs;
-      2) o Orquestrador pega o próximo job pending (worker sequencial, 1 por vez —
-         MVP sem concorrência, decisão fechada 2026-07-06) e chama os 4 papéis
-         já existentes em sequência fixa e determinística: Autor de Conteúdo →
-         Adaptador de Fluxograma → Diretor de Apresentação → Crítico;
-      3) o Crítico devolve o veredito via Condenador (código puro, sem LLM decidindo o fluxo);
-      4) se APROVADO: publica o lesson.json final no Pacote da Aula Pronta;
-      5) se REPROVADO: o Orquestrador reprocessa a fase indicada por `send_back_to`
-         com o feedback do Crítico (aqui ilustrado voltando pro Autor de Conteúdo —
-         na prática pode ser qualquer um dos 3 papéis geradores, conforme o veredito);
-      6) se esgotar as tentativas de reprocessamento: o job vira `failed` (dead-letter)
-         na Fila de Jobs e o Orquestrador segue pro próximo job — SEM escalonar pra
-         nenhum humano (requisito confirmado por Lucas em 2026-07-06).
+      Novo fluxo — 1 job produz 1 ou N fatias (depende do orçamento de conceitos):
+
+      1) material bruto chega, cria job pending na Fila de Jobs;
+      2) Orquestrador pega job pending (worker sequencial, 1 por vez — MVP);
+      3) Planejador de Escopo divide o material em N fatias (ou 1 fatia se < orçamento);
+      4) LOOP PARA CADA FATIA (processamento em paralelo lógico, independente):
+         - Fase 1: Autor de Conteúdo gera roteiro_pedagogico.json [FATIA K]
+         - Fase 2: Adaptador gera roteiro_mapeado.json [FATIA K] — sequência C2 contígua DESTA FATIA
+         - Fase 3: Diretor gera lesson.json [FATIA K] — sub-aula para esta fatia
+         - Fase 4: Crítico avalia lesson.json [FATIA K] contra 30 princípios
+
+      5) VEREDITO POR FATIA:
+         - APROVADA: publica lesson.json como sub-aula; passa pra próxima fatia (sem bloquear)
+         - REPROVADA: volta pro papel indicado (send_back_to), outras N-1 fatias continuam
+         - ESGOTADA (max retries): vai pro dead-letter, outras N-1 fatias continuam
+
+      6) JOB FINAL:
+         - M/N fatias aprovadas: status=partial_done, publica lesson.json unificado com
+           numeração continuada (Step 1-7 da fatia 1, Step 8-14 da fatia 2, ...)
+         - 0/N fatias aprovadas: status=failed (dead-letter), segue pro próximo job
+           SEM escalonar pra humano.
+
+      Resultado: uma fatia reprovada NÃO trava o job inteiro; uma fatia pode falhar
+      e as outras N-1 fatias são publicadas normalmente como sub-aulas da mesma job.
     '''
 
     lousa.privateFactory.contentSources -> lousa.privateFactory.ingestApi 'material bruto chega'
-    lousa.privateFactory.ingestApi -> lousa.privateFactory.jobStore 'cria job pending'
+    lousa.privateFactory.ingestApi -> lousa.privateFactory.jobStore 'cria job pending (sem slices ainda)'
     lousa.privateFactory.jobStore -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'entrega o próximo job pending'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'fase 1: gera roteiro_pedagogico.json'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.flowchartAdapter 'fase 2: gera roteiro_mapeado.json'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.presentationDirector 'fase 3: gera lesson.json'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.lessonCritic 'fase 4: avalia contra os 30 princípios'
-    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'devolve veredito (aprovado ou reprovado + send_back_to)'
-    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.lessonPackage.manifest 'APROVADO: publica o lesson.json final'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'REPROVADO: reprocessa com feedback (exemplo: send_back_to=content_author)'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore 'ESGOTOU TENTATIVAS: job -> failed (dead-letter), sem escalonar pra humano, segue pro próximo job'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'FATIA K — FASE 1: gera roteiro_pedagogico.json [K]'
+    lousa.privateFactory.backendPrivate.contentAuthor -> lousa.privateFactory.backendPrivate.flowchartAdapter 'entrega roteiro da fatia K para fase 2'
+    lousa.privateFactory.backendPrivate.flowchartAdapter -> lousa.privateFactory.backendPrivate.presentationDirector 'FATIA K — FASE 2: gera roteiro_mapeado.json [K], sequência C2 contígua DESTA FATIA'
+    lousa.privateFactory.backendPrivate.presentationDirector -> lousa.privateFactory.backendPrivate.lessonCritic 'FATIA K — FASE 3: gera lesson.json [K] (sub-aula)'
+    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'FATIA K — FASE 4: veredito (aprovada, reprovada + send_back_to, ou esgotada)'
+    lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.lessonPackage.manifest 'FATIA K APROVADA: publica lesson.json [K] como sub-aula'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'FATIA K REPROVADA: reprocessa com feedback (volta pro papel de send_back_to)'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.flowchartAdapter 'FATIA K REPROVADA: pode voltar pro Adaptador, conforme send_back_to'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.presentationDirector 'FATIA K REPROVADA: pode voltar pro Diretor, conforme send_back_to'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore 'PROCESSAMENTO CONTINUA: enquanto houver fatias (aprovadas, esgotadas, ou reprovadas em retry), status=running'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore 'FIM DO JOB: M/N fatias aprovadas → status=partial_done; lesson.json final unifica todas as sub-aulas; 0/N → status=failed (dead-letter), segue pro próximo job SEM escalonar'
 
     style * {
       color secondary

@@ -104,28 +104,51 @@ model {
         orquestradorFabrica = component 'Orquestrador da Fábrica' {
           technology 'state machine Python simples (worker sequencial), fabrica/orchestrator.py (a implementar)'
           description '''
-            Encadeia os 4 papéis já existentes da fábrica em sequência fixa e determinística:
-            Autor de Conteúdo → Adaptador de Fluxograma → Diretor de Apresentação → Crítico.
+            Encadeia os 4 papéis já existentes da fábrica em sequência fixa e determinística,
+            operando sobre FATIAS INDEPENDENTES (desde 2026-07-08):
+            Planejador de Escopo divide 1 job em N fatias/sub-aulas quando material > orçamento de conceitos.
+            Cada fatia percorre o pipeline completo por si: Autor de Conteúdo → Adaptador de Fluxograma →
+            Diretor de Apresentação → Crítico. Uma fatia reprovada volta pro papel responsável, outras N-1
+            fatias do mesmo job continuam independentemente. Fatia esgotada vai pro dead-letter sem travar o job.
             Não é um grafo de decisão de LLM (decisão fechada 2026-07-06: sem LangGraph) —
             o roteamento entre papéis é 100% determinístico, decidido em código puro pelo
             Condenador, nunca por um LLM escolhendo dinamicamente o próximo passo.
-            MVP: worker sequencial, 1 job por vez, sem claim atômico nem múltiplos workers.
+            MVP: worker sequencial, 1 job por vez, N fatias processadas em paralelo lógico, sem claim atômico nem múltiplos workers.
           '''
         }
 
         contentAuthor = component 'Autor de Conteúdo' {
           technology 'fabrica/agents/content_author.py'
-          description 'Papel 1 (O QUÊ): gera o roteiro pedagógico a partir do material bruto.'
+          description '''
+            Papel 1 (O QUÊ): recebe o material bruto e produz 1 ou N roteiros pedagógicos.
+            Desde 2026-07-08, o Planejador de Escopo divide material > orçamento em N fatias,
+            e o Autor agora gera N roteiros_pedagogicos.json (fan-out), um por fatia.
+            Downstream (Adaptador, Diretor, Crítico) processa cada fatia em paralelo lógico,
+            de forma completamente independente.
+          '''
         }
 
         flowchartAdapter = component 'Adaptador de Fluxograma' {
           technology 'fabrica/agents/flowchart_adapter.py'
-          description 'Papel 2 (ONDE): mapeia o roteiro pro diagrama LikeC4 compilado da aula.'
+          description '''
+            Papel 2 (ONDE): mapeia cada roteiro pro diagrama LikeC4 compilado.
+            Desde 2026-07-08 opera POR FATIA INDIVIDUAL: processa roteiro_pedagogico.json
+            de uma fatia, gera roteiro_mapeado.json contíguo para aquela fatia apenas.
+            Não assume aula inteira — apenas a sequência C2 da fatia atual. Erros de
+            contiguidade detectados no mapping indicam falha de fatia (não do job inteiro).
+          '''
         }
 
         presentationDirector = component 'Diretor de Apresentação' {
           technology 'fabrica/agents/presentation_director.py'
-          description 'Papel 3 (COMO): monta o lesson.json final a partir do mapeamento.'
+          description '''
+            Papel 3 (COMO): monta o lesson.json a partir do mapeamento.
+            Desde 2026-07-08 opera POR FATIA: produz lesson.json referente apenas à
+            fatia atual (sub-aula). O Orquestrador junta os N lesson.json de todas
+            as fatias aprovadas em um único lesson.json final com numeração continuada
+            (Step 1-7 da fatia 1, depois Step 8-14 da fatia 2, etc), publicado como
+            uma aula visualmente unificada.
+          '''
         }
 
         lessonCritic = component 'Crítico + Condenador' {
@@ -133,9 +156,13 @@ model {
           description '''
             Papel 4 (gate de qualidade): o Crítico (LLM) avalia o lesson.json contra os 30
             princípios de UX; o Condenador (Python puro, sem LLM) decide aprovado/reprovado
-            de forma determinística. Reprovação NÃO escala para um humano em produção —
-            só falha o job (dead-letter) e a fila segue pro próximo, conforme requisito
-            confirmado por Lucas em 2026-07-06.
+            de forma determinística.
+            Desde 2026-07-08 opera POR FATIA: avalia o lesson.json da fatia atual.
+            Aprovação: fatia publicada como sub-aula dentro do job. Reprovação: a fatia
+            volta pro papel indicado por send_back_to (ex: content_author), outras N-1
+            fatias do job continuam independentes. Fatia esgotada vai pro dead-letter.
+            Reprovação NÃO escala pra humano — job segue com fatias aprovadas; se TODAS
+            as N fatias falham → job dead-letter e fila segue pro próximo job.
           '''
         }
 
@@ -150,13 +177,16 @@ model {
       }
 
       jobStore = datastore 'Fila de Jobs da Fábrica' {
-        technology 'tabela de jobs (a implementar) — status pending/running/failed/done + correlation_id'
+        technology 'tabela de jobs (a implementar) — status pending/running/partial_done/failed/done + correlation_id + slice_tracking'
         description '''
-          1 job = 1 execução de pipeline pra 1 material de origem.
-          Amarra os commits das 4 fases pelo mesmo correlation_id (gap identificado
-          na pesquisa de arquitetura: hoje os commits de cada papel não têm nada em
-          comum rastreável). Job que esgota as tentativas de reprocessamento vira
-          failed (dead-letter) e a fila segue pro próximo — sem escalonar pra humano.
+          1 job = 1 execução de pipeline pra 1 material de origem, podendo gerar 1 ou N fatias.
+          Estrutura: job.status = pending/running/partial_done/failed/done;
+          job.slices[] = [{slice_id, status, send_back_to, retry_count}, ...];
+          slice = unidade indivisível de reprocessamento (se reprovada, volta pro papel indicado,
+          outras fatias continuam).
+          Amarra os commits das 4 fases pelo mesmo correlation_id. Job com M/N fatias
+          aprovadas = partial_done (publicadas como sub-aulas). Job com 0 fatias aprovadas = failed
+          (dead-letter), fila segue pro próximo job — sem escalonar pra humano.
         '''
       }
 
