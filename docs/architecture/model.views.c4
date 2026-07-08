@@ -112,7 +112,9 @@ views {
 
       5) VEREDITO POR FATIA:
          - APROVADA: publica lesson.json como sub-aula; passa pra próxima fatia (sem bloquear)
-         - REPROVADA: volta pro papel indicado (send_back_to), outras N-1 fatias continuam
+         - REPROVADA: CASCADE-REGENERATE — volta pro papel indicado (send_back_to) e TODOS
+           os estágios seguintes são descartados e refeitos do zero (sem versionamento
+           parcial); outras N-1 fatias continuam intocadas
          - ESGOTADA (max retries): vai pro dead-letter, outras N-1 fatias continuam
 
       6) JOB FINAL:
@@ -134,9 +136,9 @@ views {
     lousa.privateFactory.backendPrivate.presentationDirector -> lousa.privateFactory.backendPrivate.lessonCritic 'FATIA K — FASE 3: gera lesson.json [K] (sub-aula)'
     lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.backendPrivate.orquestradorFabrica 'FATIA K — FASE 4: veredito (aprovada, reprovada + send_back_to, ou esgotada)'
     lousa.privateFactory.backendPrivate.lessonCritic -> lousa.privateFactory.lessonPackage.manifest 'FATIA K APROVADA: publica lesson.json [K] como sub-aula'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'FATIA K REPROVADA: reprocessa com feedback (volta pro papel de send_back_to)'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.flowchartAdapter 'FATIA K REPROVADA: pode voltar pro Adaptador, conforme send_back_to'
-    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.presentationDirector 'FATIA K REPROVADA: pode voltar pro Diretor, conforme send_back_to'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.contentAuthor 'FATIA K REPROVADA (send_back_to=content_author): CASCADE-REGENERATE — Adaptador e Diretor rodam de novo do zero sobre o roteiro corrigido'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.flowchartAdapter 'FATIA K REPROVADA (send_back_to=flowchart_adapter): CASCADE-REGENERATE — só o Diretor refaz também, do zero'
+    lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.backendPrivate.presentationDirector 'FATIA K REPROVADA (send_back_to=presentation_director): refaz só o Diretor, sem estágios seguintes a descartar'
     lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore 'PROCESSAMENTO CONTINUA: enquanto houver fatias (aprovadas, esgotadas, ou reprovadas em retry), status=running'
     lousa.privateFactory.backendPrivate.orquestradorFabrica -> lousa.privateFactory.jobStore 'FIM DO JOB: M/N fatias aprovadas → status=partial_done; lesson.json final unifica todas as sub-aulas; 0/N → status=failed (dead-letter), segue pro próximo job SEM escalonar'
 

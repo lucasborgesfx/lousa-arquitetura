@@ -106,7 +106,9 @@ model {
           description '''
             Encadeia os 4 papéis da fábrica por fatia independente (desde 2026-07-08):
             Planejador divide o job em N fatias; roteamento 100% determinístico via
-            Condenador, nunca LLM (decisão fechada 2026-07-06, sem LangGraph).
+            Condenador, nunca LLM (decisão fechada 2026-07-06, sem LangGraph). Reprovação
+            = cascade-regenerate: estágios após send_back_to são descartados e refeitos
+            do zero, sem versionamento parcial.
           '''
         }
 
