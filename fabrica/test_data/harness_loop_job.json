@@ -12,5 +12,7 @@
   "publish_dir": ".tmp/fabrica-e2e/harness-loop",
   "run_dir": "fabrica/runs/harness-loop-e2e",
   "version": "1.0",
-  "max_reworks": 2
+  "max_reworks": 2,
+  "max_llm_calls": 300,
+  "max_llm_tokens": 1500000
 }

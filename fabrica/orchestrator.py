@@ -19,17 +19,19 @@ from __future__ import annotations
 
 import argparse
 import copy
+import fcntl
+import hashlib
 import json
 import os
 import re
 import shutil
 import sys
 import traceback
-import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 FABRICA_DIR = Path(__file__).resolve().parent
 REPO_ROOT = FABRICA_DIR.parent
@@ -77,6 +79,18 @@ def _slugify(value: str) -> str:
     return slug or "job"
 
 
+def _stable_job_id(source_file: Path, tema: str, objetivo: str) -> str:
+    """job_id determinístico quando o job-file não declara um explícito.
+
+    Precisa ser estável entre execuções do MESMO job-file pra existir "o
+    mesmo job" a retomar — uuid4 gerava um job novo a cada chamada, o que
+    tornava checkpoint/resume impossível (run_dir/publish_dir mudavam sempre).
+    """
+    digest_source = f"{source_file.resolve()}|{tema}|{objetivo}"
+    digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:12]
+    return f"{_slugify(Path(source_file).stem)}-{digest}"
+
+
 def _resolve_existing_path(value: str, *, base_dir: Path) -> Path:
     path = Path(value)
     if path.is_absolute():
@@ -99,8 +113,29 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
+    """Escrita atômica: grava em arquivo temporário no mesmo diretório e
+    renomeia por cima do destino. os.replace é atômico no mesmo filesystem —
+    um kill -9 no meio nunca deixa o arquivo final truncado/corrompido,
+    só o `.tmp` (descartável)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp_path = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
+@contextmanager
+def _locked_file(lock_path: Path) -> Iterator[None]:
+    """Lease/lock simples via flock exclusivo — evita duas invocações
+    concorrentes de work-next reservando o mesmo job ou perdendo updates
+    (lost-update) no JobStore. Escopo do processo: bloqueia até liberar."""
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
 
 
 def _write_text(path: Path, text: str) -> None:
@@ -189,7 +224,7 @@ class JobSpec:
         diagram_source_file = _resolve_existing_path(str(raw["diagram_source_file"]), base_dir=base_dir)
         diagram_module_file = _resolve_existing_path(str(raw["diagram_module_file"]), base_dir=base_dir)
 
-        job_id = str(raw.get("job_id") or f"{_slugify(Path(source_file).stem)}-{uuid.uuid4().hex[:8]}")
+        job_id = str(raw.get("job_id") or _stable_job_id(source_file, tema, objetivo))
         publish_dir = _resolve_output_path(str(raw.get("publish_dir") or (DEFAULT_PUBLISH_ROOT / job_id)))
         run_dir = _resolve_output_path(str(raw.get("run_dir") or (DEFAULT_RUNS_DIR / job_id)))
 
@@ -243,9 +278,14 @@ class JobSpec:
         }
 
 
+class JobNotFoundError(Exception):
+    """job_id ausente na fila — tratado graciosamente pelo chamador, nunca cru."""
+
+
 class JobStore:
     def __init__(self, path: Path):
         self.path = path
+        self._lock_path = path.with_name(f".{path.name}.lock")
 
     def _load(self) -> dict[str, Any]:
         if not self.path.exists():
@@ -256,43 +296,51 @@ class JobStore:
         _write_json(self.path, data)
 
     def enqueue(self, raw_spec: dict[str, Any]) -> dict[str, Any]:
-        data = self._load()
         spec = dict(raw_spec)
-        spec["job_id"] = spec.get("job_id") or f"{_slugify(Path(str(spec['source_file'])).stem)}-{uuid.uuid4().hex[:8]}"
-        record = {
-            "job_id": spec["job_id"],
-            "status": "pending",
-            "created_at": _utcnow(),
-            "updated_at": _utcnow(),
-            "spec": spec,
-            "result": None,
-        }
-        data["jobs"].append(record)
-        self._save(data)
-        return record
+        if not spec.get("job_id"):
+            job = JobSpec.from_dict(spec, base_dir=REPO_ROOT)
+            spec["job_id"] = job.job_id
+        with _locked_file(self._lock_path):
+            data = self._load()
+            record = {
+                "job_id": spec["job_id"],
+                "status": "pending",
+                "created_at": _utcnow(),
+                "updated_at": _utcnow(),
+                "spec": spec,
+                "result": None,
+            }
+            data["jobs"].append(record)
+            self._save(data)
+            return record
 
     def reserve_next(self) -> dict[str, Any] | None:
-        data = self._load()
-        for record in data["jobs"]:
-            if record["status"] == "pending":
-                record["status"] = "running"
-                record["started_at"] = _utcnow()
-                record["updated_at"] = _utcnow()
-                self._save(data)
-                return copy.deepcopy(record)
-        return None
+        """Adquire o lease exclusivo do arquivo da fila inteira antes de ler+escrever
+        — impede duas invocações concorrentes de work-next reservarem o mesmo job
+        (dupla reserva) ou perderem update uma da outra (lost-update)."""
+        with _locked_file(self._lock_path):
+            data = self._load()
+            for record in data["jobs"]:
+                if record["status"] == "pending":
+                    record["status"] = "running"
+                    record["started_at"] = _utcnow()
+                    record["updated_at"] = _utcnow()
+                    self._save(data)
+                    return copy.deepcopy(record)
+            return None
 
     def finish(self, job_id: str, *, status: str, result: dict[str, Any]) -> None:
-        data = self._load()
-        for record in data["jobs"]:
-            if record["job_id"] == job_id:
-                record["status"] = status
-                record["updated_at"] = _utcnow()
-                record["finished_at"] = _utcnow()
-                record["result"] = result
-                self._save(data)
-                return
-        raise KeyError(f"job_id não encontrado na fila: {job_id}")
+        with _locked_file(self._lock_path):
+            data = self._load()
+            for record in data["jobs"]:
+                if record["job_id"] == job_id:
+                    record["status"] = status
+                    record["updated_at"] = _utcnow()
+                    record["finished_at"] = _utcnow()
+                    record["result"] = result
+                    self._save(data)
+                    return
+        raise JobNotFoundError(f"job_id não encontrado na fila: {job_id}")
 
 
 class NeedRescope(RuntimeError):
@@ -347,6 +395,24 @@ def _prepare_slice_run_dir(run_dir: Path, slice_plan: dict[str, Any]) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     _write_json(run_dir / "slice.json", slice_plan)
     _write_text(run_dir / "source.md", str(slice_plan["markdown"]))
+
+
+def _save_slice_state(slice_run_dir: Path, *, target: str, rework_count: int, feedback_text: str | None) -> None:
+    """Checkpoint de qual fase/tentativa esta fatia está em, gravado ANTES de
+    cada fase rodar. Restart relê isso (ver _load_slice_state) pra retomar do
+    ponto exato em vez de refazer tudo — só entra em jogo se o slice ainda não
+    tiver result.json terminal (done/failed)."""
+    _write_json(
+        slice_run_dir / "state.json",
+        {"target": target, "rework_count": rework_count, "feedback_text": feedback_text, "updated_at": _utcnow()},
+    )
+
+
+def _load_slice_state(slice_run_dir: Path) -> dict[str, Any] | None:
+    state_path = slice_run_dir / "state.json"
+    if not state_path.exists():
+        return None
+    return _read_json(state_path)
 
 
 def _budget_callback(job: JobSpec, budget: LlmBudget) -> tuple[Any, Any]:
@@ -408,6 +474,54 @@ def _publish_lesson(
     return lesson_path
 
 
+def _handle_phase_exhaustion(
+    job: JobSpec,
+    slice_plan: dict[str, Any],
+    slice_run_dir: Path,
+    slice_publish_dir: Path,
+    budget: LlmBudget,
+    *,
+    phase: str,
+    exc: Exception,
+    rework_count: int,
+    verbose: bool,
+) -> tuple[int, str, str | None, dict[str, Any] | None]:
+    """Esgotamento de flowchart_adapter/presentation_director (RuntimeError após
+    MAX_RETRIES internos deles) reaproveita o mesmo mecanismo de
+    rework_count/max_reworks que já trata reprovação do Crítico — vira falha
+    DA FATIA (dead-letter), nunca propaga pra derrubar o job inteiro.
+
+    Retorna (rework_count, próximo target, feedback_text, resultado terminal
+    ou None). Quando o 4º item não é None, o chamador deve retornar esse
+    resultado imediatamente (fatia esgotada)."""
+    if rework_count >= job.max_reworks:
+        result = {
+            "slice_id": slice_plan["slice_id"],
+            "slice_title": slice_plan["title"],
+            "job_id": job.job_id,
+            "status": "failed",
+            "reason": f"{phase} esgotou tentativas: {exc}",
+            "send_back_to": phase,
+            "rework_count": rework_count,
+            "critic_score": None,
+            "run_dir": str(slice_run_dir),
+            "publish_dir": str(slice_publish_dir),
+            "finished_at": _utcnow(),
+            "llm_budget": budget.snapshot(),
+        }
+        _write_json(slice_run_dir / "result.json", result)
+        _status_line(f"fatia esgotada em {phase} após {rework_count} retrabalhos: {exc}", verbose=verbose)
+        return rework_count, phase, None, result
+
+    rework_count += 1
+    feedback_text = f"Tentativa anterior de {phase} falhou: {exc}\n\nCorrigir e tentar novamente."
+    _status_line(
+        f"{phase} falhou; reprocessando (tentativa de retrabalho {rework_count}/{job.max_reworks}): {exc}",
+        verbose=verbose,
+    )
+    return rework_count, phase, feedback_text, None
+
+
 def _run_slice(
     job: JobSpec,
     slice_plan: dict[str, Any],
@@ -428,12 +542,52 @@ def _run_slice(
     slice_run_dir = job.run_dir if total_slices == 1 else job.run_dir / "slices" / slice_slug
     slice_publish_dir = job.publish_dir if total_slices == 1 else job.publish_dir / "slices" / slice_slug
 
+    # RESUME — se a fatia já chegou a um veredito terminal numa execução
+    # anterior (done ou failed/esgotada), reaproveita sem rodar de novo.
+    # Quando total_slices==1, slice_run_dir == job.run_dir — o result.json final
+    # do JOB (escrito no fim de run_job) e o da FATIA colidem no mesmo path.
+    # "slice_id" só existe no formato de resultado de fatia, nunca no de job;
+    # usa isso pra não confundir um result.json de job antigo com um veredito
+    # de fatia retomável.
+    terminal_result_path = slice_run_dir / "result.json"
+    if terminal_result_path.exists():
+        cached = _read_json(terminal_result_path)
+        if "slice_id" in cached and cached.get("status") in ("done", "failed"):
+            _status_line(
+                f"fatia {slice_slug} já tinha veredito terminal ({cached['status']}) — pulando, reaproveitando resultado",
+                verbose=verbose,
+            )
+            return cached
+
     _prepare_slice_run_dir(slice_run_dir, slice_plan)
     source_copy_path = slice_run_dir / "source.md"
     before_request, record_usage = _budget_callback(job, budget)
 
+    # RESUME parcial — fatia foi interrompida no meio (sem result.json terminal
+    # mas com state.json + artefatos de fase já gravados). Recarrega de onde
+    # parou em vez de refazer as fases já concluídas.
+    state = _load_slice_state(slice_run_dir)
+    if state is not None:
+        target = state["target"]
+        rework_count = int(state["rework_count"])
+        feedback_text = state.get("feedback_text")
+        roteiro_path = slice_run_dir / "roteiro_pedagogico.json"
+        mapeado_path = slice_run_dir / "roteiro_mapeado.json"
+        lesson_draft_path = slice_run_dir / "lesson.draft.json"
+        if roteiro_path.exists():
+            roteiro = _read_json(roteiro_path)
+        if mapeado_path.exists():
+            mapeado = _read_json(mapeado_path)
+        if lesson_draft_path.exists():
+            lesson_draft = _read_json(lesson_draft_path)
+        _status_line(
+            f"fatia {slice_slug} retomada do checkpoint: target={target}, rework_count={rework_count}",
+            verbose=verbose,
+        )
+
     while True:
         if target == "content_author":
+            _save_slice_state(slice_run_dir, target=target, rework_count=rework_count, feedback_text=feedback_text)
             _status_line("fase 1/4: Autor de Conteúdo", verbose=verbose)
             try:
                 roteiro = generate_roteiro(
@@ -446,10 +600,22 @@ def _run_slice(
                     usage_hook=record_usage,
                     verbose=verbose,
                 )
+            except LlmBudgetExceeded:
+                raise
             except RuntimeError as exc:
                 if _is_concept_budget_error(exc):
                     raise NeedRescope(slice_plan, str(exc)) from exc
-                raise
+                # Esgotamento do Autor por qualquer OUTRO motivo (ex.: beat com
+                # conceitos demais, campo longo demais) não é orçamento — mesmo
+                # isolamento por fatia aplicado ao Adaptador/Diretor, não derruba
+                # o job inteiro.
+                rework_count, target, feedback_text, exhausted_result = _handle_phase_exhaustion(
+                    job, slice_plan, slice_run_dir, slice_publish_dir, budget,
+                    phase="content_author", exc=exc, rework_count=rework_count, verbose=verbose,
+                )
+                if exhausted_result is not None:
+                    return exhausted_result
+                continue
             _write_json(slice_run_dir / "roteiro_pedagogico.json", roteiro)
             mapeado = None
             lesson_draft = None
@@ -474,33 +640,61 @@ def _run_slice(
                 return result
 
         if target in {"content_author", "flowchart_adapter"}:
+            _save_slice_state(slice_run_dir, target="flowchart_adapter", rework_count=rework_count, feedback_text=feedback_text)
             _status_line("fase 2/4: Adaptador de Fluxograma", verbose=verbose)
-            mapeado = generate_mapeamento(
-                roteiro,
-                view_id=job.view_id,
-                c4_module_path=job.diagram_module_file,
-                feedback=feedback_text if target == "flowchart_adapter" else None,
-                before_request=before_request,
-                usage_hook=record_usage,
-                verbose=verbose,
-            )
+            try:
+                mapeado = generate_mapeamento(
+                    roteiro,
+                    view_id=job.view_id,
+                    c4_module_path=job.diagram_module_file,
+                    feedback=feedback_text if target == "flowchart_adapter" else None,
+                    before_request=before_request,
+                    usage_hook=record_usage,
+                    verbose=verbose,
+                )
+            except LlmBudgetExceeded:
+                raise
+            except RuntimeError as exc:
+                # Esgotamento do Adaptador (após seus próprios MAX_RETRIES internos)
+                # não pode derrubar o job inteiro — vira retrabalho da FATIA,
+                # mesmo mecanismo de rework_count/max_reworks da reprovação do Crítico.
+                rework_count, target, feedback_text, exhausted_result = _handle_phase_exhaustion(
+                    job, slice_plan, slice_run_dir, slice_publish_dir, budget,
+                    phase="flowchart_adapter", exc=exc, rework_count=rework_count, verbose=verbose,
+                )
+                if exhausted_result is not None:
+                    return exhausted_result
+                continue
             _write_json(slice_run_dir / "roteiro_mapeado.json", mapeado)
             lesson_draft = None
 
         if target in {"content_author", "flowchart_adapter", "presentation_director"}:
+            _save_slice_state(slice_run_dir, target="presentation_director", rework_count=rework_count, feedback_text=feedback_text)
             _status_line("fase 3/4: Diretor de Apresentação", verbose=verbose)
-            lesson_draft = generate_lesson(
-                mapeado,
-                version=job.version,
-                diagram_source=job.diagram_source,
-                diagram_module=job.diagram_module,
-                feedback=feedback_text if target == "presentation_director" else None,
-                before_request=before_request,
-                usage_hook=record_usage,
-                verbose=verbose,
-            )
+            try:
+                lesson_draft = generate_lesson(
+                    mapeado,
+                    version=job.version,
+                    diagram_source=job.diagram_source,
+                    diagram_module=job.diagram_module,
+                    feedback=feedback_text if target == "presentation_director" else None,
+                    before_request=before_request,
+                    usage_hook=record_usage,
+                    verbose=verbose,
+                )
+            except LlmBudgetExceeded:
+                raise
+            except RuntimeError as exc:
+                rework_count, target, feedback_text, exhausted_result = _handle_phase_exhaustion(
+                    job, slice_plan, slice_run_dir, slice_publish_dir, budget,
+                    phase="presentation_director", exc=exc, rework_count=rework_count, verbose=verbose,
+                )
+                if exhausted_result is not None:
+                    return exhausted_result
+                continue
             _write_json(slice_run_dir / "lesson.draft.json", lesson_draft)
 
+        _save_slice_state(slice_run_dir, target="lesson_critic", rework_count=rework_count, feedback_text=feedback_text)
         _status_line("fase 4/4: Crítico + Condenador", verbose=verbose)
         critic_report = critique_lesson(
             lesson_draft,
@@ -653,62 +847,17 @@ def run_job(job: JobSpec, *, until_stage: str = "full", verbose: bool = False) -
                 total_slices=total_slices,
                 verbose=verbose,
             )
-        except NeedRescope as exc:
-            if int(slice_plan.get("rescope_depth", 0)) >= 2:
-                result = {
-                    "job_id": job.job_id,
-                    "status": "failed",
-                    "reason": exc.reason,
-                    "send_back_to": "scope_planner",
-                    "scope_plan": {
-                        "slice_count": scope_plan["slice_count"],
-                        "concept_budget": scope_plan["concept_budget"],
-                    },
-                    "slices": slice_results,
-                    "run_dir": str(job.run_dir),
-                    "publish_dir": str(job.publish_dir),
-                    "finished_at": _utcnow(),
-                    "llm_budget": budget.snapshot(),
-                }
-                _write_json(job.run_dir / "result.json", result)
-                return result
-
-            expanded = _expand_slice_for_rescope(job, exc.slice_plan)
-            if len(expanded) <= 1:
-                result = {
-                    "job_id": job.job_id,
-                    "status": "failed",
-                    "reason": exc.reason,
-                    "send_back_to": "scope_planner",
-                    "scope_plan": {
-                        "slice_count": scope_plan["slice_count"],
-                        "concept_budget": scope_plan["concept_budget"],
-                    },
-                    "slices": slice_results,
-                    "run_dir": str(job.run_dir),
-                    "publish_dir": str(job.publish_dir),
-                    "finished_at": _utcnow(),
-                    "llm_budget": budget.snapshot(),
-                }
-                _write_json(job.run_dir / "result.json", result)
-                return result
-
-            _status_line(
-                f"scope_planner refinou a fatia {slice_plan['slice_id']} em {len(expanded)} subfatias",
-                verbose=verbose,
-            )
-            pending_slices = expanded + pending_slices
-            total_slices = len(slice_results) + len(pending_slices)
-            continue
-
-        slice_results.append(slice_result)
-        total_slices = len(slice_results) + len(pending_slices)
-        if slice_result["status"] != "done":
+        except LlmBudgetExceeded as exc:
+            # Orçamento do job inteiro estourou — não há mais o que fazer, mas
+            # preserva as fatias JÁ aprovadas (slice_results) em vez de perdê-las
+            # no result.json, como acontecia antes (run_job_safely engolia tudo
+            # no handler genérico de exceção sem "slices").
+            done_count = sum(1 for r in slice_results if r["status"] == "done")
             result = {
                 "job_id": job.job_id,
-                "status": "failed",
-                "reason": slice_result["reason"],
-                "send_back_to": slice_result.get("send_back_to"),
+                "status": "partial_done" if done_count else "failed",
+                "reason": f"LlmBudgetExceeded: {exc}",
+                "send_back_to": None,
                 "scope_plan": {
                     "slice_count": scope_plan["slice_count"],
                     "concept_budget": scope_plan["concept_budget"],
@@ -719,20 +868,102 @@ def run_job(job: JobSpec, *, until_stage: str = "full", verbose: bool = False) -
                 "finished_at": _utcnow(),
                 "llm_budget": budget.snapshot(),
             }
+            if done_count and until_stage == "full":
+                _write_publish_manifest(job, scope_plan, [r for r in slice_results if r["status"] == "done"])
             _write_json(job.run_dir / "result.json", result)
             return result
+        except NeedRescope as exc:
+            # Esgotamento do re-escopo (profundidade máxima ou expansão que não
+            # reduz a fatia) é dead-letter DESTA fatia, mesmo princípio de
+            # isolamento aplicado às outras fases — não derruba o job inteiro,
+            # as outras fatias pending continuam normalmente.
+            rescope_exhausted = int(slice_plan.get("rescope_depth", 0)) >= 2
+            expanded = [] if rescope_exhausted else _expand_slice_for_rescope(job, exc.slice_plan)
+            if rescope_exhausted or len(expanded) <= 1:
+                dead_letter = {
+                    "slice_id": slice_plan["slice_id"],
+                    "slice_title": slice_plan["title"],
+                    "job_id": job.job_id,
+                    "status": "failed",
+                    "reason": exc.reason,
+                    "send_back_to": "scope_planner",
+                    "rework_count": None,
+                    "critic_score": None,
+                    "run_dir": str(job.run_dir / "slices" / slice_plan["slice_id"]),
+                    "publish_dir": None,
+                    "finished_at": _utcnow(),
+                    "llm_budget": budget.snapshot(),
+                }
+                slice_results.append(dead_letter)
+                total_slices = len(slice_results) + len(pending_slices)
+                _status_line(
+                    f"fatia {slice_plan['slice_id']} esgotou re-escopo (dead-letter): {exc.reason}",
+                    verbose=verbose,
+                )
+                continue
 
-    if total_slices > 1:
-        manifest_path = _write_publish_manifest(job, scope_plan, slice_results) if until_stage == "full" else None
+            _status_line(
+                f"scope_planner refinou a fatia {slice_plan['slice_id']} em {len(expanded)} subfatias",
+                verbose=verbose,
+            )
+            pending_slices = expanded + pending_slices
+            total_slices = len(slice_results) + len(pending_slices)
+            continue
+
+        # Esgotamento/falha desta fatia (dead-letter) NÃO derruba o job inteiro —
+        # segue pro próximo job da fila (aqui: próxima fatia pending), preservando
+        # as demais N-1. Resultado final vira partial_done (M/N) ou failed (0/N).
+        slice_results.append(slice_result)
+        total_slices = len(slice_results) + len(pending_slices)
+
+    done_results = [r for r in slice_results if r["status"] == "done"]
+    failed_results = [r for r in slice_results if r["status"] != "done"]
+
+    if until_stage != "full":
+        # Modo --until content_author: todo slice_result aqui é "content_author_approved"
+        # (done) por definição de _run_slice — não há noção de partial_done.
+        lesson_file = slice_results[0]["lesson_file"] if len(slice_results) == 1 else None
+        result = {
+            "job_id": job.job_id,
+            "status": "done",
+            "reason": "content_author_approved",
+            "send_back_to": None,
+            "until_stage": until_stage,
+            "scope_plan": {"slice_count": scope_plan["slice_count"], "concept_budget": scope_plan["concept_budget"]},
+            "slices": slice_results,
+            "run_dir": str(job.run_dir),
+            "publish_dir": None,
+            "lesson_file": lesson_file,
+            "manifest_file": None,
+            "finished_at": _utcnow(),
+            "llm_budget": budget.snapshot(),
+        }
+        _write_json(job.run_dir / "result.json", result)
+        return result
+
+    if not done_results:
+        job_status = "failed"
+        reason = f"0/{len(slice_results)} fatias aprovadas — " + (
+            failed_results[-1]["reason"] if failed_results else "nenhuma fatia processada"
+        )
+    elif failed_results:
+        job_status = "partial_done"
+        reason = f"{len(done_results)}/{len(slice_results)} fatias aprovadas, {len(failed_results)} esgotada(s) em dead-letter"
+    else:
+        job_status = "done"
+        reason = "approved"
+
+    if len(slice_results) > 1:
+        manifest_path = _write_publish_manifest(job, scope_plan, done_results) if done_results else None
         lesson_file = None
     else:
         manifest_path = None
-        lesson_file = slice_results[0]["lesson_file"]
+        lesson_file = done_results[0]["lesson_file"] if done_results else None
 
     result = {
         "job_id": job.job_id,
-        "status": "done",
-        "reason": "approved" if until_stage == "full" else "content_author_approved",
+        "status": job_status,
+        "reason": reason,
         "send_back_to": None,
         "until_stage": until_stage,
         "scope_plan": {
@@ -741,7 +972,7 @@ def run_job(job: JobSpec, *, until_stage: str = "full", verbose: bool = False) -
         },
         "slices": slice_results,
         "run_dir": str(job.run_dir),
-        "publish_dir": str(job.publish_dir) if until_stage == "full" else None,
+        "publish_dir": str(job.publish_dir) if done_results else None,
         "lesson_file": lesson_file,
         "manifest_file": str(manifest_path) if manifest_path else None,
         "finished_at": _utcnow(),
@@ -809,7 +1040,10 @@ def command_work_next(args: argparse.Namespace) -> int:
 
     job = JobSpec.from_dict(record["spec"], base_dir=REPO_ROOT)
     result = run_job_safely(job, verbose=args.verbose)
-    store.finish(job.job_id, status=result["status"], result=result)
+    try:
+        store.finish(job.job_id, status=result["status"], result=result)
+    except JobNotFoundError as exc:
+        print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False, indent=2), file=sys.stderr)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["status"] == "done" else 1
 

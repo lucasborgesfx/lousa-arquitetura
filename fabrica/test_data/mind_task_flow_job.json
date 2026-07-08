@@ -12,5 +12,7 @@
   "publish_dir": ".tmp/fabrica-e2e/mind-task-flow",
   "run_dir": "fabrica/runs/mind-task-flow-e2e",
   "version": "1.0",
-  "max_reworks": 2
+  "max_reworks": 2,
+  "max_llm_calls": 600,
+  "max_llm_tokens": 3000000
 }
