@@ -502,3 +502,35 @@ zero ambiguidade sobre onde cada módulo começa e termina.
    módulo, ou nem deveria entrar na hierarquia curso→módulo→aula?
 5. Validar os limiares numéricos propostos (~12-15 módulos/curso, ~8 aulas/módulo) contra uma
    fonte realmente longa quando uma estiver disponível — não existe ainda no projeto.
+
+---
+
+## Adendo (2026-07-11) — Terminologia e fonte curta
+
+> Decisão de Lucas (2026-07-11), propagada aqui sem reabrir o resto desta pesquisa. Vocabulário
+> canônico atualizado em `vocabulario-canonico-v1.md`: módulo é definido por coesão temática,
+> dependência conceitual, densidade de conceito e estratégia pedagógica — nunca por contagem de
+> página. Fecha os itens 1 e 4 da seção 7 (decisões em aberto para Lucas).
+
+**(a) "Módulo = capítulo real" é heurística/proxy, não a definição de módulo.** A conclusão da
+seção 1.1 ("o critério primário é capítulo real da fonte... não densidade de conceitos
+nucleares") fica **reframeada**: capítulo real não é o critério definidor, é um **atalho barato
+de detecção de coesão temática**, válido só quando o capítulo do autor já é internamente coerente.
+No Cialdini a heurística bateu porque os 8 capítulos reais já eram unidades tematicamente coesas
+(sinal estrutural forte: mesma sequência DEFESA/RESUMO/PERGUNTAS DE ESTUDO em 6 deles) — a fonte
+de teste desta pesquisa coincidiu com a heurística, não a prova como regra geral. Consequência
+prática, já prevista em espírito pela seção 4.2 (alarme de split/merge) mas agora explícita: se um
+capítulo real do autor **não** for coeso (mistura 2+ temas, ou é picado artificialmente pela
+editora em capítulos curtos e contínuos), o Estruturador de Curso pode **juntar 2 capítulos curtos
+continuados em 1 módulo** ou **dividir 1 capítulo muito longo/heterogêneo em 2 módulos** — o
+gatilho correto é coesão temática quebrada, não o tamanho/página isolado.
+
+**(b) Fonte muito curta (~10 páginas) não é caso degenerado — GAP da seção 4.3 fechado.** Não
+precisa de exclusão nem de tratamento especial de produto. O mesmo critério de módulo
+(coesão/dependência conceitual/densidade/estratégia pedagógica) aplicado a uma fonte pequena
+naturalmente produz **menos módulos e aulas** (ex.: 1 módulo, 2-3 aulas) — não menos rigor, só
+menos conteúdo de entrada. O curso continua normalmente no modo de saída `completo` (o único
+suportado pelo MVP, ver `vocabulario-canonico-v1.md` — `modo de saída`). Tamanho da fonte não
+decide o modo de saída nem justifica um caminho de produto separado ("1 aula avulsa sem módulo
+nem curso"); é só uma entrada menor para o mesmo critério, com uma saída proporcionalmente menor.
+Não precisa mais ser roteado a `gpt_web` como decisão de escopo pendente — está resolvido aqui.

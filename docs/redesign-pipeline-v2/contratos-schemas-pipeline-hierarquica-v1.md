@@ -80,6 +80,11 @@ indexado, novo alerta) — nunca reescrita integral.
     "titulo": { "type": "string" },
     "objetivo_geral": { "type": "string" },
     "nivel": { "type": "string" },
+    "modo_saida": {
+      "enum": ["completo", "compacto"],
+      "default": "completo",
+      "description": "Parâmetro ORTOGONAL à hierarquia curso→módulo→aula→bloco — não é um nível dela, é quanta densidade/profundidade o curso final tem (ver vocabulario-canonico-v1.md, 'modo de saída'). MVP suporta só 'completo'; 'compacto' é HYPOTHESIS/evolução futura (mesma hierarquia, menos aulas/blocos por módulo) — ainda não implementar. Campo novo opcional, MINOR bump por regra da seção 5: ausência implica 'completo', nunca tratar como campo obrigatório retroativo em objetos já gerados."
+    },
     "modulos": {
       "type": "array",
       "description": "Projeção resumida de CADA módulo já decidido. É uma cópia derivada de modulo.schema.v1 (resumo, status, conceitos_nucleares_aqui) — a fonte de verdade de cada campo é o próprio objeto módulo (seção 2); este array é regenerado quando o módulo muda, nunca editado à mão diretamente aqui.",

@@ -11,11 +11,23 @@
   elementos na memória de trabalho simultaneamente (base: *element interactivity*, Sweller —
   não é contagem de termos/palavras-chave).
 - **bloco didático** — menor unidade de apresentação; pode conter 1 ou mais conceitos
-  tratados juntos por fazerem parte do mesmo raciocínio.
+  tratados juntos por fazerem parte do mesmo raciocínio. Termo canônico atual — **fatia** é
+  terminologia antiga/superada da pipeline anterior; não usar nos documentos novos.
 - **aula** — sequência coerente de blocos didáticos com início/objetivo/fechamento próprios.
-- **módulo** — agrupamento de aulas que compartilham um tema/capítulo maior da fonte original
-  (informado pela fonte, não necessariamente 1:1 com capítulo do livro).
+- **módulo** — agrupamento de aulas definido por **coesão temática, dependência conceitual,
+  densidade de conceito e estratégia pedagógica** — NUNCA por contagem de página. "Capítulo
+  real da fonte" é apenas uma **heurística/pista barata** para detectar um módulo quando
+  esse capítulo já é internamente coerente — não é a definição de módulo em si. Um módulo
+  pode juntar 2 capítulos curtos e continuados, ou dividir 1 capítulo muito longo/heterogêneo
+  em 2 módulos, quando a coesão temática pedir.
 - **curso** — a fonte inteira (ex: 1 livro) transformada em experiência de estudo completa.
+- **modo de saída** (`completo` | `compacto`) — parâmetro **ortogonal** à hierarquia
+  curso→módulo→aula→bloco: não é um nível dela, é quanta densidade/profundidade o curso
+  final tem. O MVP atual só usa `completo`. `compacto` é evolução futura — mesma hierarquia,
+  só com menos aulas/blocos por módulo; não é "um tipo menor de curso". Tamanho da fonte (PDF
+  curto vs. longo) não decide sozinho o modo de saída nem o número de módulos — os mesmos
+  critérios de coesão/densidade se aplicam; uma fonte pequena naturalmente produz menos
+  módulos/aulas.
 - **representação** — forma escolhida para apresentar um bloco: diagrama (processo/relação
   causal entre partes), tabela (comparação de atributos), texto puro (conceito sem estrutura
   relacional visualizável), ou combinação. Escolhida por bloco, nunca fixa por curso/job.
