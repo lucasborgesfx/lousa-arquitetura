@@ -6,6 +6,21 @@
 > reescreve o que já existe. Nenhum código foi implementado. Grounding: exemplos reais extraídos de
 > `fonte-real/as-armas-da-persuasao.txt` (não hipotéticos).
 
+## STATUS — decisão de Lucas para o MVP (2026-07-11, `agent_messages.id=49d1a5d5`)
+
+| Decisão (seção final) | Resultado |
+|---|---|
+| 1. Expandir `aula.abertura` (cena_problema, abertura_da_lacuna, organizador_uma_frase) | **APROVADO pro MVP** — tela introdutória calma, não é escolha interativa do aluno. Já mergeado em `contratos-schemas-pipeline-hierarquica-v1.md` §2.2. |
+| 2. `pre_treino`/`pratica` no enum `papel_na_aula` | **FORA DO MVP** |
+| 3. Objeto `interacao` (pergunta/opções/gabarito/feedback) | **FORA DO MVP** |
+| 4. Prática obrigatória/recomendada dentro da aula | **FORA DO MVP** |
+| 5. Heurística content_type→tipo_interacao | **FORA DO MVP** |
+| 6. Princípio `P-PRAT` no Crítico | **FORA DO MVP** |
+| 7. Revisão espaçada / qualquer prova-teste-avaliação | **FORA DESTA RODADA** — se existir, será sistema/artefato separado da aula principal, não parte deste schema |
+| 8. Transformação essay→clique das perguntas de estudo | **FORA DO MVP** |
+
+**Diretriz do MVP**: foco em apresentação de alta qualidade (fluxograma + texto); a aula não é interrompida por teste/prática/avaliação. As seções 2-10 abaixo continuam como referência de design (não descartadas, não contraditas) para quando essa rodada futura for priorizada — não fazem parte do contrato MVP atual.
+
 ---
 
 ## 1-2. Em quais etapas entram + quem produz/revisa/valida

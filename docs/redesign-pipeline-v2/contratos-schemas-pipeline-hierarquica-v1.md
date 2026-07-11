@@ -244,9 +244,12 @@ evita reintroduzir uma segunda régua de verdade sobre hierarquia.
     },
     "abertura": {
       "type": "object",
-      "description": "Campo explícito pra P2 (why-before-what) + gap de curiosidade do protocolo dormente (se ratificado) — não depende do LLM lembrar de abrir bem.",
+      "description": "Campo explícito pra P2 (why-before-what) + protocolo de abertura por gap de curiosidade — não depende do LLM lembrar de abrir bem. Campos cena_problema/abertura_da_lacuna/organizador_uma_frase APROVADOS pro MVP em 2026-07-11 (agent_messages.id=49d1a5d5, ver docs/redesign-pipeline-v2/eixo-pedagogico-pratica-feedback-avaliacao-v1.md seção 3.1): é uma tela introdutória calma da experiência, nunca escolha interativa do aluno. Todos os 3 são opcionais (MINOR bump) — aula simples preenche só problema_ou_gap como antes.",
       "properties": {
         "problema_ou_gap": { "type": "string", "description": "o problema/pergunta que motiva a aula, antes do mecanismo" },
+        "cena_problema": { "type": "string", "description": "situação concreta, nomeada, ancorada na fonte — nunca abstrata (APROVADO MVP)" },
+        "abertura_da_lacuna": { "type": "string", "description": "a pergunta 'por que isso é estranho/não-óbvio' — Loewenstein (APROVADO MVP)" },
+        "organizador_uma_frase": { "type": "string", "maxLength": 150, "description": "nomeia o destino sem entregar a resposta (APROVADO MVP)" },
         "recap_aula_anterior": { "type": ["string", "null"], "description": "obrigatório (não-null) se gap > 2 aulas desde a última menção dos mesmos conceitos nucleares — regra herdada de design-doc-v2 seção E" }
       }
     },
