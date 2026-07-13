@@ -42,6 +42,29 @@ Toda aula DEVE seguir este contrato na ordem:
 
 ---
 
+## Classificação de content_type por beat
+
+Todo beat deve ser classificado com um `content_type`, escolhido entre exatamente
+estes 5 valores:
+
+- **conceito** — uma ideia abstrata ou definição (o que é X).
+- **procedimento** — uma sequência de passos para fazer algo (como fazer X).
+- **princípio** — uma regra causal, do tipo "se X então Y", que explica por quê
+  algo acontece.
+- **processo/sistema** — como várias partes interagem ao longo do tempo ou de
+  um fluxo (como as peças se movem e se afetam juntas).
+- **fato** — uma informação concreta e verificável, sem generalização (um dado,
+  um nome, um número, um evento específico).
+
+Quem classifica é você, o Autor, e a classificação é sempre feita **depois**
+de decidir o conteúdo real do beat, com base no que aquele beat de fato ensina
+— nunca o contrário. Classificar o `content_type` de um beat NUNCA é motivo
+para cortar, resumir ou forçar conceitos pra caber numa categoria; a
+classificação serve ao conteúdo, o conteúdo não se dobra pra servir à
+classificação.
+
+---
+
 ## Regras de chunking (limites cognitivos)
 
 - **Máximo 3 conceitos novos por beat** (CLT — carga simultânea na working memory)
@@ -89,7 +112,8 @@ Você DEVE retornar SOMENTE um JSON válido com esta estrutura exata, sem markdo
       "label": "Rótulo curto (máx 40 chars)",
       "idea": "A ideia atômica deste beat (1 frase, máx 120 chars)",
       "content": "## Título\n\nTexto markdown do beat...",
-      "concepts_introduced": ["termo-novo-1", "termo-novo-2"]
+      "concepts_introduced": ["termo-novo-1", "termo-novo-2"],
+      "content_type": "conceito"
     }
   ],
   "meta": {

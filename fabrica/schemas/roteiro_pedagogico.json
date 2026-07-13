@@ -29,7 +29,7 @@
       "maxItems": 20,
       "items": {
         "type": "object",
-        "required": ["id", "label", "idea", "content", "concepts_introduced"],
+        "required": ["id", "label", "idea", "content", "concepts_introduced", "content_type"],
         "additionalProperties": false,
         "properties": {
           "id": {
@@ -55,6 +55,11 @@
             "type": "array",
             "description": "Termos novos introduzidos neste beat (pode ser vazio)",
             "items": { "type": "string" }
+          },
+          "content_type": {
+            "type": "string",
+            "enum": ["conceito", "procedimento", "princípio", "processo/sistema", "fato"],
+            "description": "Tipo de conteúdo didático deste beat. 4 dos 5 valores vêm da base de design instrucional associada a Merrill (Component Display Theory); 'processo/sistema' é extensão interna da Lousa."
           }
         }
       }
