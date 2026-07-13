@@ -36,6 +36,21 @@
     "suggestions": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "content_type_review": {
+      "type": "array",
+      "description": "Sinal ADICIONAL e opcional (só pedido quando o harness passa content_types) — revisão de aderência de cada step ao content_type declarado pelo Autor de Conteúdo. NÃO entra em score_total/violations/gate de aprovação; é só informativo.",
+      "items": {
+        "type": "object",
+        "required": ["step", "content_type_declarado", "aderente", "justificativa"],
+        "additionalProperties": false,
+        "properties": {
+          "step": { "type": "integer", "description": "índice 1-based do step avaliado" },
+          "content_type_declarado": { "type": "string" },
+          "aderente": { "type": "boolean" },
+          "justificativa": { "type": "string" }
+        }
+      }
     }
   }
 }

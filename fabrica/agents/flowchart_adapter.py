@@ -366,6 +366,7 @@ def generate_mapeamento(
             "idea": b["idea"],
             "content": b["content"],
             "concepts_introduced": b.get("concepts_introduced", []),
+            "content_type": b.get("content_type"),
         }
         for b in roteiro["beats"]
     ]

@@ -696,8 +696,31 @@ def _run_slice(
 
         _save_slice_state(slice_run_dir, target="lesson_critic", rework_count=rework_count, feedback_text=feedback_text)
         _status_line("fase 4/4: Crítico + Condenador", verbose=verbose)
+        # content_type é campo do roteiro (Autor de Conteúdo), não existe em
+        # lesson_draft/steps[] (Diretor de Apresentação não muda de contrato
+        # nesta task) — repassamos como sinal separado pro Crítico, casando por
+        # id do beat (NUNCA por posição: a validação do Adaptador só garante
+        # que o CONJUNTO de ids de mapeado["beats"] bate com o roteiro, não a
+        # ORDEM — então não dá pra assumir roteiro["beats"][i] == mapeado["beats"][i]).
+        # mapeado["beats"] está na mesma ordem usada por _build_steps() do
+        # Diretor pra gerar steps[] (índice i = posição no array), então
+        # step_content_types[i] corresponde a lesson_draft["steps"][i].
+        if roteiro and mapeado:
+            content_type_by_beat_id = {b["id"]: b.get("content_type") for b in roteiro["beats"]}
+            step_content_types = [
+                content_type_by_beat_id.get(beat["id"])
+                for beat in mapeado["beats"]
+            ]
+        else:
+            # Fallback defensivo — não deveria ocorrer nos caminhos de resume
+            # atuais (roteiro/mapeado são persistidos em disco antes do
+            # checkpoint apontar pra "lesson_critic" e recarregados no resume),
+            # mas se algum caminho futuro chegar aqui sem eles, o Crítico trata
+            # content_type=None como "não disponível", nunca como erro.
+            step_content_types = [None] * len(lesson_draft.get("steps", []))
         critic_report = critique_lesson(
             lesson_draft,
+            content_types=step_content_types,
             before_request=before_request,
             usage_hook=record_usage,
             verbose=verbose,

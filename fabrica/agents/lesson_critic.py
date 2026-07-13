@@ -205,12 +205,19 @@ def _enrich(raw: dict) -> dict:
         for p in principles
         if p["status"] != "PASS"
     ]
-    return {
+    report = {
         "score_total": score_total,
         "violations": violations,
         "suggestions": raw.get("suggestions", []),
         "principles": principles,  # relatório completo, pra auditoria/traceability
     }
+    # content_type_review é um sinal ADICIONAL e informativo (ver docstring de
+    # critique_lesson) — nunca entra em score_total/violations. Só aparece no
+    # relatório final quando o LLM de fato o retornou (harness pediu porque
+    # content_types foi passado); ausência não é erro.
+    if "content_type_review" in raw:
+        report["content_type_review"] = raw["content_type_review"]
+    return report
 
 
 # ── Geração ───────────────────────────────────────────────────────────────────
@@ -218,6 +225,7 @@ def _enrich(raw: dict) -> dict:
 def critique_lesson(
     lesson: dict,
     *,
+    content_types: list[str | None] | None = None,
     before_request: Callable[[str], None] | None = None,
     usage_hook: Callable[[str, dict[str, int]], None] | None = None,
     verbose: bool = False,
@@ -226,12 +234,21 @@ def critique_lesson(
     Avalia um lesson.json contra os 30 princípios de UX.
 
     Args:
-        lesson:  dict do lesson.json completo (output do Diretor de Apresentação).
-        verbose: se True, imprime progresso no stderr.
+        lesson:        dict do lesson.json completo (output do Diretor de Apresentação).
+        content_types: opcional — content_type de cada beat (Autor de Conteúdo),
+                        na MESMA ORDEM de lesson["steps"] (índice i corresponde a
+                        steps[i]; None onde não disponível). lesson.json não tem
+                        content_type (o Diretor não muda de contrato) — este é
+                        um sinal passado à parte pelo orchestrator. Quando
+                        omitido, comportamento idêntico ao anterior: os 30
+                        princípios continuam funcionando exatamente como hoje.
+        verbose:       se True, imprime progresso no stderr.
 
     Returns:
         dict com o relatório do Crítico: score_total, violations[], suggestions[],
-        principles[] (os 30, completo, pra auditoria).
+        principles[] (os 30, completo, pra auditoria), e opcionalmente
+        content_type_review[] (só quando content_types foi passado e o LLM o
+        retornou) — sinal adicional informativo, não entra em score_total.
 
     Raises:
         RuntimeError: se o LLM não produzir uma crítica estruturalmente válida
@@ -242,6 +259,7 @@ def critique_lesson(
     system_prompt = _load_system_prompt()
     schema = _load_schema()
 
+    steps = lesson.get("steps", [])
     lesson_summary = {
         "id": lesson.get("id"),
         "title": lesson.get("title"),
@@ -255,8 +273,15 @@ def critique_lesson(
                 "label": s.get("label"),
                 "camera": s.get("camera"),
                 "content": s.get("content"),
+                **(
+                    {"content_type_declarado": content_types[i - 1]}
+                    if content_types is not None
+                    and i - 1 < len(content_types)
+                    and content_types[i - 1] is not None
+                    else {}
+                ),
             }
-            for i, s in enumerate(lesson.get("steps", []), start=1)
+            for i, s in enumerate(steps, start=1)
         ],
     }
     user_message = (
@@ -265,6 +290,14 @@ def critique_lesson(
         f"{wrap_document(json.dumps(lesson_summary, ensure_ascii=False, indent=2))}\n\n"
         f"---\n\nAvalie os 30 princípios, um a um, na ordem P1..P30, conforme o formato do harness."
     )
+    if content_types is not None:
+        user_message += (
+            "\n\n---\n\nAlém dos 30 princípios, cada step com `content_type_declarado` "
+            "presente traz um pedido SEPARADO: preencha `content_type_review` "
+            "avaliando a aderência daquele step ao content_type declarado (ver "
+            "seção específica do harness). Isso NÃO é um 31º princípio — não "
+            "misture com a lista `principles`."
+        )
 
     last_errors: list[str] = []
     last_raw = ""

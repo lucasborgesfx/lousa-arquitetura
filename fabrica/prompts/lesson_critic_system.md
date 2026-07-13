@@ -246,3 +246,39 @@ JSON válido exemplo:
 **Não inclua:**
 - `score_total` — o harness calcula isso em Python
 - campos adicionais fora destes 8
+
+---
+
+## Pedido opcional adicional — `content_type_review` (só quando o harness fornecer `content_type_declarado`)
+
+Este pedido é **separado** dos 30 princípios acima — não é um "P31", não conta para `score_total`, não participa do gate de aprovação do Condenador. É um sinal extra, informativo.
+
+Alguns steps do `lesson.json` que você recebe podem trazer um campo `content_type_declarado` (valores possíveis: `conceito`, `procedimento`, `princípio`, `processo/sistema`, `fato` — classificação didática feita pelo Autor de Conteúdo, baseada em Merrill/Component Display Theory + extensão interna da Lousa). Nem todo step vai ter esse campo — quando ausente, ignore aquele step para este pedido.
+
+Para cada step que **tiver** `content_type_declarado`, avalie se o tratamento do step (texto em `content`, preset de câmera, foco) é **aderente** ao tipo declarado. Alguns exemplos de expectativa por tipo (orientação, não regra rígida):
+- `procedimento`: espera-se sequência ordenada de passos — content deveria descrever uma ação/etapa concreta, não uma definição abstrata.
+- `processo/sistema`: espera-se interação entre várias partes — content deveria situar o step dentro de um fluxo maior.
+- `princípio`: espera-se relação causal entre elementos — content deveria explicar o "porquê", não só o "o quê".
+- `fato`: espera-se um dado pontual e específico — content deveria ser direto, sem exigir encadeamento com outros steps.
+- `conceito`: espera-se definição/caracterização de uma ideia — content deveria caracterizar o elemento, não narrar uma sequência.
+
+Retorne isso em `content_type_review`, um array com um item por step avaliado (só os que têm `content_type_declarado`):
+
+```json
+{
+  "content_type_review": [
+    {
+      "step": 3,
+      "content_type_declarado": "procedimento",
+      "aderente": true,
+      "justificativa": "step 3 descreve a sequência 'primeiro X, depois Y' — compatível com procedimento"
+    }
+  ]
+}
+```
+
+- `step`: integer 1-based (mesmo índice de `principles[].step`).
+- `content_type_declarado`: repita o valor que você recebeu para aquele step.
+- `aderente`: `true`/`false`.
+- `justificativa`: string curta, sempre obrigatória (PASS ou FAIL desta avaliação, sempre justifique).
+- Se nenhum step do lesson.json trouxer `content_type_declarado`, omita `content_type_review` inteiramente da resposta.
