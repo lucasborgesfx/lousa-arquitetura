@@ -1,0 +1,40 @@
+specification {
+
+  element system {
+    notation 'Pipeline V2 (spike)'
+    style {
+      opacity 20%
+    }
+  }
+
+  element component {
+    notation 'Componente'
+    style {
+      opacity 20%
+    }
+  }
+
+  element datastore {
+    notation 'Datastore'
+    style {
+      shape storage
+      opacity 30%
+    }
+  }
+
+  element queue {
+    notation 'Fila'
+    style {
+      shape queue
+      opacity 28%
+    }
+  }
+
+  element pipelineRole {
+    notation 'Etapa especializada'
+    style {
+      shape rectangle
+      opacity 24%
+    }
+  }
+}

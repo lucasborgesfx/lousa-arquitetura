@@ -1,0 +1,57 @@
+views {
+
+  dynamic view stateCheckpoints {
+    title 'Checkpoints persistentes e artefatos de critica'
+    description '''
+      Esta view separa o que e estado persistente do que e fluxo logico:
+      - checkpoints curso/modulo/aula vivem com o orquestrador;
+      - `critic_report.json` passa de F para G;
+      - o bundle de coerencia passa de H/G/J para I.
+    '''
+
+    lousaV2.orquestrador -> lousaV2.checkpointCurso '1. Salva o state.json do curso'
+    lousaV2.orquestrador -> lousaV2.checkpointModulo '2. Salva o state.json do modulo ativo'
+    lousaV2.orquestrador -> lousaV2.checkpointAula '3. Salva o state.json da aula corrente'
+
+    lousaV2.criticoAula -> lousaV2.criticReportAula '4. Produz critic_report.json' {
+      notes '''
+        Artefato explicito entre Critico de Aula e Condenador de Aula.
+      '''
+    }
+    lousaV2.criticReportAula -> lousaV2.condenadorAula '5. Le score, violations e send_back_to'
+
+    lousaV2.criticoCurso -> lousaV2.bundleCoerenciaCurso '6. Publica alertas_de_coerencia[]' {
+      notes '''
+        O bundle global junta o que o Critico viu com os status locais ja fechados.
+      '''
+    }
+    lousaV2.condenadorAula -> lousaV2.bundleCoerenciaCurso '7. Agrega status/vereditos das aulas'
+    lousaV2.orquestrador -> lousaV2.bundleCoerenciaCurso '8. Anexa fechamento de modulo e manifest parcial'
+    lousaV2.bundleCoerenciaCurso -> lousaV2.condenadorCurso '9. Entrega a materia-prima do veredito global'
+
+    style * {
+      color secondary
+      opacity 16%
+    }
+
+    style lousaV2.orquestrador, lousaV2.bundleCoerenciaCurso, lousaV2.condenadorCurso {
+      color amber
+      opacity 100%
+    }
+
+    style lousaV2.checkpointCurso, lousaV2.checkpointModulo, lousaV2.checkpointAula {
+      color indigo
+      opacity 100%
+    }
+
+    style lousaV2.criticoAula, lousaV2.criticReportAula, lousaV2.condenadorAula {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.criticoCurso {
+      color amber
+      opacity 100%
+    }
+  }
+}

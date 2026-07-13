@@ -1,0 +1,166 @@
+views {
+
+  dynamic view executionFlow {
+    variant sequence
+
+    title 'Execucao real - modulos serializados, aulas paralelas e rotas de reprovacao'
+    description '''
+      Esta view mostra a concorrencia REAL da proposta:
+      1 modulo ativo por vez, fila local de aulas em paralelo, e rotas explicitas
+      de reprovacao via `send_back_to`.
+    '''
+
+    lousaV2.fonte -> lousaV2.estruturador 'Ato 1 - fonte entra por ingest ainda manual' {
+      notes '''
+        O desenho continua assumindo GAP de ingest automatizada.
+      '''
+    }
+    lousaV2.estruturador -> lousaV2.mapaCurso 'Ato 1 - gera o mapa-base do curso' {
+      notes '''
+        O mapa nasce cedo e ja carrega `modo_saida=completo`.
+      '''
+    }
+
+    lousaV2.orquestrador -> lousaV2.planejador 'Ato 2 - ativa 1 modulo por vez' {
+      notes '''
+        Modulo-paralelo fica desligado por padrao.
+      '''
+    }
+    lousaV2.mapaCurso -> lousaV2.planejador 'DECIDIDO - entrega resumo local do modulo'
+    lousaV2.planejador -> lousaV2.filaAulas 'HYPOTHESIS - publica queue local do modulo'
+
+    parallel {
+      lousaV2.filaAulas -> lousaV2.autor 'Aula A - worker reserva e escreve blocos'
+      lousaV2.filaAulas -> lousaV2.autor 'Aula B - worker reserva e escreve blocos'
+      lousaV2.filaAulas -> lousaV2.autor 'Aula C - worker reserva e escreve blocos'
+    }
+
+    lousaV2.mapaCurso -> lousaV2.autor 'DECIDIDO - injeta indice global curto'
+    lousaV2.autor -> lousaV2.adaptador 'DECIDIDO - envia blocos preenchidos'
+    lousaV2.adaptador -> lousaV2.diretor 'HYPOTHESIS - ancora a aula em 1 view/fluxograma'
+    lousaV2.diretor -> lousaV2.criticoAula 'DECIDIDO - entrega a aula pronta para critica'
+    lousaV2.criticoAula -> lousaV2.criticReportAula 'DECIDIDO - produz critic_report.json'
+    lousaV2.criticReportAula -> lousaV2.condenadorAula 'DECIDIDO - condena a aula em codigo puro'
+
+    parallel {
+      lousaV2.condenadorAula -> lousaV2.autor 'rota 1 - send_back_to=content_author'
+      lousaV2.condenadorAula -> lousaV2.adaptador 'rota 2 - send_back_to=flowchart_adapter'
+      lousaV2.condenadorAula -> lousaV2.diretor 'rota 3 - send_back_to=presentation_director'
+    }
+
+    lousaV2.orquestrador <- lousaV2.condenadorAula 'aprovada - volta para o loop do modulo' {
+      notes '''
+        Checkpoint de aula:
+        o fluxo so sobe de nivel quando a aula fecha.
+      '''
+    }
+
+    lousaV2.orquestrador -> lousaV2.mapaCurso 'Ato 3 - aplica 1 patch no mapa ao fechar o modulo'
+    lousaV2.orquestrador -> lousaV2.criticoCurso 'Ato 3 - dispara coerencia global ao fechar o modulo' {
+      notes '''
+        O mapa continua com escritor unico: o orquestrador.
+      '''
+    }
+    lousaV2.mapaCurso -> lousaV2.criticoCurso 'HYPOTHESIS - fornece resumos e indice global'
+    lousaV2.criticoCurso -> lousaV2.bundleCoerenciaCurso 'HYPOTHESIS - escreve alertas_de_coerencia[]'
+    lousaV2.condenadorAula -> lousaV2.bundleCoerenciaCurso 'HYPOTHESIS - junta vereditos das aulas'
+    lousaV2.bundleCoerenciaCurso -> lousaV2.condenadorCurso 'HYPOTHESIS - entrega bundle final da revisao'
+    lousaV2.orquestrador <- lousaV2.condenadorCurso 'HYPOTHESIS - aprova o curso ou reabre modulo/aula' {
+      notes '''
+        A revisao global nao mexe na ordem logica; ela fecha ou devolve.
+      '''
+    }
+
+    include lousaV2 with {
+      color muted
+      opacity 0%
+    }
+
+    style * {
+      color secondary
+      opacity 22%
+      size sm
+    }
+
+    style lousaV2.fonte {
+      color red
+      opacity 100%
+    }
+
+    style lousaV2.estruturador {
+      color red
+      opacity 100%
+    }
+
+    style lousaV2.mapaCurso {
+      color amber
+      opacity 100%
+      size md
+    }
+
+    style lousaV2.filaAulas {
+      color amber
+      opacity 100%
+      size md
+    }
+
+    style lousaV2.planejador {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.autor {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.adaptador {
+      color amber
+      opacity 100%
+    }
+
+    style lousaV2.diretor {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.criticoAula {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.criticReportAula {
+      color green
+      opacity 100%
+      size md
+    }
+
+    style lousaV2.condenadorAula {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.criticoCurso {
+      color amber
+      opacity 100%
+    }
+
+    style lousaV2.bundleCoerenciaCurso {
+      color amber
+      opacity 100%
+      size md
+    }
+
+    style lousaV2.condenadorCurso {
+      color amber
+      opacity 100%
+      size md
+    }
+
+    style lousaV2.orquestrador {
+      color amber
+      opacity 100%
+      size md
+    }
+  }
+}

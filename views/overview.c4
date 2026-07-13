@@ -1,0 +1,53 @@
+views {
+
+  dynamic view overview {
+    title 'Fluxo logico canonico - sem paralelismo nem checkpoint'
+    description '''
+      Esta view mostra SO o fluxo logico da pipeline.
+      Ela esconde concorrencia real e checkpoints de proposito, para nao
+      misturar semantica de produto com semantica de runtime.
+
+      Leitura de confianca:
+      - verde = DECIDIDO
+      - amber = HYPOTHESIS
+      - red = GAP
+    '''
+
+    // Ato 1: a fonte vira curso.
+    lousaV2.fonte
+      -> lousaV2.estruturador '1. Estrutura a fonte em modulos do curso'
+      -> lousaV2.mapaCurso '2. Publica o mapa-base com modo_saida=completo' {
+        notes '''
+          `modulo` e definido por coesao tematica; capitulo real e so heuristica.
+          O mapa aparece cedo para virar a ancora global da pipeline.
+        '''
+      }
+
+    // Ato 2: um modulo vira aulas e blocos apresentados.
+    lousaV2.mapaCurso -> lousaV2.planejador '3. Entrega contexto local do modulo'
+    lousaV2.planejador -> lousaV2.autor '4. Define a sequencia de aulas'
+    lousaV2.autor -> lousaV2.adaptador '5. Preenche blocos e escolhe representacao'
+    lousaV2.adaptador -> lousaV2.diretor '6. Mantem 1 view ancora por aula no MVP'
+    lousaV2.diretor -> lousaV2.criticoAula '7. Entrega o lesson.json da aula'
+    lousaV2.criticoAula -> lousaV2.criticReportAula '8. Publica critic_report.json'
+    lousaV2.criticReportAula -> lousaV2.condenadorAula '9. Emite o veredito local'
+
+    // Ato 3: o curso fecha por revisao global.
+    lousaV2.mapaCurso -> lousaV2.criticoCurso '10. Revisa coerencia global do curso'
+    lousaV2.criticoCurso -> lousaV2.bundleCoerenciaCurso '11. Publica alertas_de_coerencia[]'
+    lousaV2.condenadorAula -> lousaV2.bundleCoerenciaCurso '12. Junta status/vereditos das aulas'
+    lousaV2.bundleCoerenciaCurso -> lousaV2.condenadorCurso '13. Fecha o veredito do curso'
+
+    style lousaV2.fonte {
+      color red
+    }
+
+    style lousaV2.estruturador, lousaV2.mapaCurso, lousaV2.adaptador, lousaV2.criticoCurso, lousaV2.bundleCoerenciaCurso, lousaV2.condenadorCurso {
+      color amber
+    }
+
+    style lousaV2.planejador, lousaV2.autor, lousaV2.diretor, lousaV2.criticoAula, lousaV2.criticReportAula, lousaV2.condenadorAula {
+      color green
+    }
+  }
+}

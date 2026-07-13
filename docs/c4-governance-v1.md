@@ -7,6 +7,17 @@ Regra curta: **repo lidera, host projeta, spikes têm nome inequívoco e vida cu
 
 ## Onde fica o canônico
 
+### Atualização 2026-07-13 — Pipeline V2 hierárquica
+
+- Fonte canônica da arquitetura V2: arquivos `.c4` na raiz do repo
+  (`_spec.c4`, `model.c4`, `views/*.c4`) mais `likec4.config.json`.
+- A cópia em `workspace/spikes/001-likec4-mind-bootstrap/projects/lousa-v2-arquitetura-spike/`
+  existe só para o host visual local `http://localhost:4310/`; ela não é fonte de verdade.
+- O material antigo em `docs/architecture/` continua como referência da arquitetura anterior
+  da Lousa, mas não é o canônico da pipeline V2.
+
+### Histórico 2026-07-03 — arquitetura anterior
+
 - Fonte canônica única: `docs/architecture/{model.c4, model.views.c4, _spec.c4}`, neste repo.
 - Uma mudança só conta como propagada quando existir `commit` + `git push` — ver
   `bridge.project.blueprint.c4-github-stream.v1`.

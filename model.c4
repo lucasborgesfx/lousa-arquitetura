@@ -1,0 +1,204 @@
+// Fontes canonicas lidas antes de modelar:
+// - ~/projects/lousa-arquitetura/docs/redesign-pipeline-v2/contratos-schemas-pipeline-hierarquica-v1.md
+// - ~/projects/lousa-arquitetura/docs/redesign-pipeline-v2/vocabulario-canonico-v1.md
+// - ~/projects/lousa-arquitetura/docs/redesign-pipeline-v2/SINTESE-FINAL-v1.md
+// - ~/projects/lousa-arquitetura/docs/redesign-pipeline-v2/estruturador-de-curso-v1.md
+// - ~/projects/lousa-arquitetura/docs/redesign-pipeline-v2/concorrencia-orquestrador-hierarquico-v1.md
+// - codigo real em ~/projects/lousa-arquitetura/fabrica/{agents,orchestrator.py}
+
+model {
+
+  lousaV2 = system 'Lousa V2 - pipeline hierarquica (spike visual)' {
+    description '''
+      Este diagrama mostra a arquitetura PROPOSTA da pipeline hierarquica:
+      fonte -> curso -> modulos -> aulas -> blocos -> representacao.
+
+      Decisoes incorporadas nesta revisao:
+      - MVP publica `modo_saida = completo`; `compacto` fica para depois.
+      - `modulo` e agrupamento por coesao tematica; capitulo real e so heuristica.
+      - toda aula tem 1 fluxograma/diagrama ancora; texto acompanha; tabela so complementa.
+      - no MVP existe 1 view fixa por aula; trocar de view no meio da aula fica fora do escopo.
+
+      Leitura de confianca:
+      - verde = DECIDIDO (reaproveita codigo real ja existente)
+      - amber = HYPOTHESIS (proposta desta rodada, ainda nao ratificada por Lucas)
+      - red = GAP (lacuna conhecida ou etapa ainda nao resolvida)
+    '''
+
+    fonte = component 'Fonte ingerida (markdown limpo + metadados)' {
+      technology 'VERIFIED - docs/redesign-pipeline-v2/frente-a-extracao-higiene.md'
+      description '''
+        GAP: a extracao/ingest ainda esta manual e os marcadores de pagina nao
+        chegam prontos ao resto da pipeline.
+      '''
+    }
+
+    mapaCurso = datastore 'Mapa do Curso' {
+      technology 'DECIDIDO - mapa_do_curso.schema.v1; modo_saida default = completo'
+      description '''
+        HYPOTHESIS: objeto pequeno, global e somente-leitura para as etapas de
+        conteudo. So A e H escrevem patches pequenos aqui; o orquestrador so
+        aplica esses patches como escritor unico.
+      '''
+    }
+
+    estruturador = pipelineRole 'A. Estruturador de Curso' {
+      technology 'HYPOTHESIS - modulo por coesao; capitulo real e proxy barata, nao definicao'
+      description '''
+        Le a fonte inteira e monta o esqueleto inicial de modulos do curso.
+        No caso Cialdini, 8 capitulos reais viram 8 modulos por boa heuristica;
+        em geral, o criterio segue coesao tematica, nao contagem de paginas.
+      '''
+    }
+
+    planejador = pipelineRole 'B. Planejador de Modulo' {
+      technology 'DECIDIDO - reaproveita ~/projects/lousa-arquitetura/fabrica/agents/scope_planner.py'
+      description '''
+        Quebra um modulo em lista ordenada de aulas no modo completo, sem olhar
+        o curso inteiro. Herda a heuristica local do scope_planner atual.
+      '''
+    }
+
+    autor = pipelineRole 'C. Autor de Conteudo' {
+      technology 'DECIDIDO - reaproveita ~/projects/lousa-arquitetura/fabrica/agents/content_author.py'
+      description '''
+        Preenche blocos da aula e recalcula guardrails em codigo; usa o indice
+        global so como referencia curta, nunca como dump do curso.
+      '''
+    }
+
+    adaptador = pipelineRole 'D. Adaptador de Representacao' {
+      technology 'HYPOTHESIS - estende ~/projects/lousa-arquitetura/fabrica/agents/flowchart_adapter.py'
+      description '''
+        Decide onde e como apresentar cada bloco: diagrama, tabela, texto puro
+        ou combinacao. No MVP, o fluxograma continua ancora obrigatoria da aula
+        e a troca de view acontece entre aulas, nunca no meio da mesma aula.
+      '''
+    }
+
+    diretor = pipelineRole 'E. Diretor de Apresentacao' {
+      technology 'DECIDIDO - presentation_director.py; camera.preset = mapping.type 1:1'
+      description '''
+        Traduz o mapeamento aprovado para camera/timing final, sem reescrever
+        conteudo, trocar de diagrama ou inventar preset. Mantem o invariante de
+        1 unico `walkthrough-start` quando houver walkthrough.
+      '''
+    }
+
+    criticoAula = pipelineRole 'F. Critico de Aula' {
+      technology 'DECIDIDO - reaproveita ~/projects/lousa-arquitetura/fabrica/agents/lesson_critic.py'
+      description '''
+        Avalia uma aula por vez e produz um `critic_report.json` com score,
+        violacoes e feedback concreto de retorno.
+      '''
+    }
+
+    condenadorAula = pipelineRole 'G. Condenador de Aula' {
+      technology 'DECIDIDO - reaproveita ~/projects/lousa-arquitetura/fabrica/agents/condemn.py'
+      description '''
+        Decide aprovado/reprovado e `send_back_to` em codigo puro, roteando o
+        retrabalho para C, D ou E conforme a falha.
+      '''
+    }
+
+    criticoCurso = pipelineRole 'H. Critico de Coerencia de Curso' {
+      technology 'HYPOTHESIS - contrato em docs/redesign-pipeline-v2/contratos-schemas-pipeline-hierarquica-v1.md §3.H'
+      description '''
+        Olha resumos, indice global e alertas pequenos para detectar redundancia,
+        gap de pre-requisito e inconsistencia terminologica sem reler o curso
+        inteiro.
+      '''
+    }
+
+    condenadorCurso = pipelineRole 'I. Condenador de Curso' {
+      technology 'HYPOTHESIS - mesma filosofia de ~/projects/lousa-arquitetura/fabrica/agents/condemn.py em nivel curso'
+      description '''
+        Consolida alertas e status das aulas/modulos para emitir o veredito do
+        curso inteiro, sem ler conteudo bruto e sem usar LLM.
+      '''
+    }
+
+    orquestrador = pipelineRole 'J. Orquestrador Hierarquico' {
+      technology 'HYPOTHESIS - modulos serializados + aulas paralelas via JobStore local'
+      description '''
+        Mantem checkpoints curso->modulo->aula, serializa modulos, paraleliza
+        aulas do modulo ativo e aplica patches no mapa como escritor unico.
+      '''
+    }
+
+    filaAulas = queue 'Fila local de aulas do modulo ativo' {
+      technology 'HYPOTHESIS - reuse recursivo de JobStore/queue.json por modulo'
+      description '''
+        O modulo ativo abre sua propria fila local; workers reservam aulas em
+        paralelo sem ativar modulo-paralelo por padrao.
+      '''
+    }
+
+    checkpointCurso = datastore 'Checkpoint do Curso (state.json)' {
+      technology 'HYPOTHESIS - state.json raiz em runs/<curso_id>/'
+      description '''
+        Guarda o ponto de retomada do curso inteiro e o modulo ativo no momento.
+      '''
+    }
+
+    checkpointModulo = datastore 'Checkpoint do Modulo (state.json)' {
+      technology 'HYPOTHESIS - state.json dentro de modulos/<modulo_id>/'
+      description '''
+        Registra estado do modulo, fila local e barreira de fechamento do mapa.
+      '''
+    }
+
+    checkpointAula = datastore 'Checkpoint da Aula (state.json)' {
+      technology 'HYPOTHESIS - state.json dentro de aulas/<aula_id>/'
+      description '''
+        Reaproveita a forma de checkpoint da pipeline atual para cada aula.
+      '''
+    }
+
+    criticReportAula = datastore 'critic_report.json da aula' {
+      technology 'DECIDIDO - saida estrutural de lesson_critic.py'
+      description '''
+        Artefato que passa de F para G: score, violations, reasoning e
+        feedback operacional com `send_back_to`.
+      '''
+    }
+
+    bundleCoerenciaCurso = datastore 'Bundle de coerencia do curso' {
+      technology 'HYPOTHESIS - alertas_de_coerencia[] + status de aulas/modulos'
+      description '''
+        Artefato logico que passa de H/G/J para I antes do veredito global.
+      '''
+    }
+
+    fonte -> estruturador 'DECIDIDO - entrega markdown limpo + metadados de ingest'
+    estruturador -> mapaCurso 'DECIDIDO - publica modulos[] + modo_saida=completo'
+
+    mapaCurso -> planejador 'DECIDIDO - leitura local do modulo; nao carrega o curso inteiro'
+    planejador -> filaAulas 'HYPOTHESIS - enfileira as aulas do modulo ativo'
+    filaAulas -> autor 'HYPOTHESIS - workers reservam aulas em paralelo'
+    mapaCurso -> autor 'DECIDIDO - indice global so com nome + definicao curta'
+    autor -> adaptador 'DECIDIDO - aula.blocos[] preenchida'
+    adaptador -> diretor 'HYPOTHESIS - representacao por bloco, com 1 view ancora por aula no MVP'
+    diretor -> criticoAula 'DECIDIDO - lesson.json da aula com camera 1:1 do mapping'
+    criticoAula -> criticReportAula 'DECIDIDO - produz critic_report.json'
+    criticReportAula -> condenadorAula 'DECIDIDO - score + violations + send_back_to'
+    condenadorAula -> autor 'DECIDIDO - reprova para content_author quando o problema e de conteudo'
+    condenadorAula -> adaptador 'DECIDIDO - reprova para flowchart_adapter quando o problema e de representacao'
+    condenadorAula -> diretor 'DECIDIDO - reprova para presentation_director quando o problema e de montagem'
+
+    mapaCurso -> criticoCurso 'HYPOTHESIS - le resumos + indice + historico leve'
+    criticoCurso -> bundleCoerenciaCurso 'HYPOTHESIS - publica alertas_de_coerencia[]'
+    condenadorAula -> bundleCoerenciaCurso 'HYPOTHESIS - agrega status/vereditos das aulas'
+    bundleCoerenciaCurso -> condenadorCurso 'HYPOTHESIS - base para o veredito global'
+
+    orquestrador -> planejador 'HYPOTHESIS - abre 1 modulo por vez'
+    orquestrador -> filaAulas 'HYPOTHESIS - inicializa a fila local do modulo ativo'
+    orquestrador -> checkpointCurso 'HYPOTHESIS - salva state.json do curso'
+    orquestrador -> checkpointModulo 'HYPOTHESIS - salva state.json do modulo'
+    orquestrador -> checkpointAula 'HYPOTHESIS - salva state.json da aula'
+    orquestrador -> mapaCurso 'HYPOTHESIS - escritor unico, 1 patch por fechamento de modulo'
+    orquestrador -> criticoCurso 'HYPOTHESIS - roda coerencia global quando um modulo fecha'
+    orquestrador -> condenadorCurso 'HYPOTHESIS - fecha o curso com manifest final'
+    condenadorCurso -> orquestrador 'HYPOTHESIS - aprova curso ou reabre modulo/aula afetada'
+  }
+}

@@ -301,6 +301,10 @@ evita reintroduzir uma segunda régua de verdade sobre hierarquia.
     "conceitos_introduzidos": { "type": "array", "items": { "type": "string" }, "description": "termos NOVOS aqui — vira input pro dedupe contra indice_conceitos_nucleares do curso" },
     "conceitos_referenciados": { "type": "array", "items": { "type": "string" }, "description": "CAMPO NOVO (não existia na pipeline antiga): termos já ensinados em módulo/aula anterior, citados por recap ou reuso. Só pode citar termos que já existem em indice_conceitos_nucleares — validado em código, não por autorrelato." },
     "papel_na_aula": { "enum": ["abertura", "desenvolvimento", "fechamento"] },
+    "content_type": {
+      "enum": ["conceito", "procedimento", "princípio", "processo/sistema", "fato"],
+      "description": "Tipo de conteúdo didático do bloco. 4 dos 5 valores (fato, conceito, procedimento, princípio) vêm da base de design instrucional associada a Merrill (Component Display Theory); 'processo/sistema' é extensão/adaptação interna da Lousa, coerente com o medium visual/diagramático. Enum inicial e revisável do MVP (não é taxonomia universal definitiva), com uso real na pipeline — não é metadado morto — e validação futura por gold-set humano."
+    },
     "origem_na_fonte": {
       "type": "object",
       "required": ["pagina_inicio", "confianca"],
@@ -341,6 +345,13 @@ evita reintroduzir uma segunda régua de verdade sobre hierarquia.
 }
 ```
 
+**Ponto 6 — sincronização bloco textual ↔ step visual (FECHADO, decisão não reaberta):**
+no MVP a relação entre bloco didático (texto) e step do fluxograma/representação visual é
+**1:1** — 1 bloco textual gera exatamente 1 step visual. Modos 1:N (um bloco gerando
+múltiplos steps visuais) e N:1 (múltiplos blocos colapsando num único step) **não são
+implementados no MVP**; ficam como possibilidade futura, fora do escopo atual. Motivo: o
+benefício não justificava o custo/complexidade adicional de backend+frontend.
+
 ---
 
 ## 3. Contrato de cada etapa especializada
@@ -362,6 +373,16 @@ que esta frente foi encarregada de explicitar.
 | **H. Crítico de Coerência de Curso** *(NOVO)* | `mapa_do_curso.modulos[]` (resumos) + `indice_conceitos_nucleares` — objetos pequenos por design | Conteúdo bruto (`blocos[].conteudo`) de qualquer aula, por padrão. Se precisar confirmar suspeita, deve pedir 1 aula específica por vez — nunca carregar o curso inteiro numa chamada | `mapa_do_curso.alertas_de_coerencia[]` | **Fecha gap que não existia na pipeline antiga**: implementa a definição de "qualidade" do vocabulário canônico ("coerência global do curso... sem redundância... sem justificativa pedagógica") e resolve estruturalmente o "achado das duas réguas de conceito" ao trabalhar sobre o índice único, não sobre contagens duplicadas por aula. |
 | **I. Condenador de Curso** *(NOVO, determinístico, sem IA)* | `alertas_de_coerencia` abertos + status de cada módulo/aula | Conteúdo bruto — só olha vereditos/alertas já estruturados | Veredito M/N módulos aprovados (mesmo espírito do `manifest.json` do orchestrator hoje) | Mesma filosofia de `condemn.py` (código determinístico, zero LLM), estendida pro nível curso. |
 | **J. Orquestrador Hierárquico** | `curso_id` + spec completa do job | Decide fluxo, não conteúdo | Checkpoints aninhados curso→módulo→aula + `manifest.json` | **Reaproveita quase tudo de `orchestrator.py`**: hash determinístico (agora `curso_id`), `state.json` por fase, lock, escrita atômica, isolamento de falha por unidade, `NeedRescope`. **Novo:** 1 nível extra de checkpoint (módulo) + decisão de concorrência — ver nota abaixo. |
+
+**Nota sobre limite de conceitos (Ponto 2/7 — FECHADO, corrige ambiguidade de versões
+anteriores):** os limiares já citados na seção 0 seguem valendo — máx 3 conceitos novos
+por bloco didático (hard cap local) e máx 6 conceitos novos por aula (soma de
+`blocos[].conceitos_introduzidos`, sempre recontada em código via
+`aula.meta.total_conceitos_novos`, nunca autorrelato do LLM). O remédio para excesso
+**não é** o Autor de Conteúdo (etapa C) cortar ou resumir conceitos pra caber no limite:
+o Autor sinaliza o excesso, o Orquestrador Hierárquico (etapa J) devolve o material ao
+Planejador de Módulo (etapa B), e é o Planejador quem resolve — segmentando o conteúdo em
+mais aulas. Nunca corte de conteúdo pelo Autor.
 
 **Nota sobre concorrência (Orquestrador Hierárquico, HYPOTHESIS a validar com Lucas):**
 recomendo módulos **serializados entre si** (módulo B só roda o Autor de Conteúdo depois

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://likec4.dev/schemas/config.json",
+  "name": "lousa-v2-arquitetura-spike",
+  "title": "Lousa V2 - arquitetura hierarquica canonica",
+  "exclude": [
+    "**/node_modules/**",
+    "**/.tmp/**",
+    "**/docs/**",
+    "**/fixtures/**",
+    "**/lessons/**",
+    "**/legacy/**"
+  ]
+}

@@ -1,0 +1,235 @@
+model {
+  extend lousaV2 {
+    nomenclatura = component 'Nomenclatura canonica da Lousa V2' {
+      description '''
+        Artefato de comunicacao para fixar nomes. Nao decide pedagogia do
+        Ponto 3; apenas separa termos canonicos, sinonimos legados e fronteiras
+        entre texto pedagogico e representacao visual.
+      '''
+
+      curso = component 'curso' {
+        description 'Unidade raiz produzida a partir da fonte. Contem modulos.'
+
+        modulo = component 'modulo' {
+          description 'Agrupamento por coesao tematica. Contem aulas.'
+
+          aula = component 'aula' {
+            description 'Unidade executavel/revisavel da pipeline. Contem blocos didaticos.'
+
+            blocoDidatico = component 'bloco didatico' {
+              description '''
+                Unidade pedagogica dentro da aula. Nao e sinonimo de step:
+                um bloco pode virar um ou mais steps e pode ter representacao
+                visual propria.
+              '''
+
+              step = component 'step' {
+                description '''
+                  Passo atomico de apresentacao/execucao dentro do bloco
+                  didatico. Pode apontar para texto pedagogico e/ou para uma
+                  representacao visual.
+                '''
+              }
+            }
+          }
+        }
+      }
+
+      noFluxograma = component 'no do fluxograma' {
+        description 'Forma visual discreta no diagrama da aula. Nao carrega sozinho todo o texto pedagogico.'
+      }
+
+      arestaTransicao = component 'aresta/transicao' {
+        description 'Ligacao visual ou temporal entre nos/steps; representa passagem, dependencia ou sequencia.'
+      }
+
+      textoPedagogico = component 'conteudo da coluna esquerda' {
+        description '''
+          Texto pedagogico: explicacao, exemplo, pergunta ou instrucao que o
+          aluno le/ouve. E diferente da forma visual escolhida para representar
+          esse conteudo.
+        '''
+      }
+
+      representacaoVisual = component 'representacao visual da coluna direita' {
+        description '''
+          Diagrama, fluxograma, tabela ou forma visual que ancora a aula na
+          coluna direita. No MVP, a aula mantem 1 fluxograma/view ancora.
+        '''
+      }
+
+      termosLegados = component 'Termos legados e sinonimos' {
+        beat = component 'beat (legado)' {
+          description '''
+            Termo legado para unidade narrativa/ritmica. Quando aparecer,
+            traduzir com cuidado: pode corresponder a step, mas nao deve ser
+            usado como nome canonico.
+          '''
+        }
+
+        fatia = component 'fatia (legado)' {
+          description '''
+            Termo legado informal para recorte de conteudo. Pode se referir a
+            bloco didatico ou a parte de um bloco, entao nao substitui `bloco
+            didatico` nem `step`.
+          '''
+        }
+      }
+
+      roteiroPedagogico = datastore 'roteiro_pedagogico.json' {
+        description 'Artefato intermediario com curso/modulos/aulas/blocos em linguagem pedagogica.'
+      }
+
+      lessonJson = datastore 'lesson.json' {
+        description 'Artefato final da aula, com texto, steps, mapping visual e camera/timing.'
+      }
+    }
+
+    nomenclatura.curso.modulo.aula.blocoDidatico.step -> nomenclatura.textoPedagogico 'referencia o texto pedagogico'
+    nomenclatura.curso.modulo.aula.blocoDidatico.step -> nomenclatura.noFluxograma 'pode materializar ou destacar'
+    nomenclatura.noFluxograma -> nomenclatura.arestaTransicao 'se conecta por'
+    nomenclatura.representacaoVisual -> nomenclatura.noFluxograma 'e composta por nos'
+    nomenclatura.representacaoVisual -> nomenclatura.arestaTransicao 'e composta por transicoes'
+    nomenclatura.termosLegados.beat -> nomenclatura.curso.modulo.aula.blocoDidatico.step 'traduzir caso a caso; nao canonizar'
+    nomenclatura.termosLegados.fatia -> nomenclatura.curso.modulo.aula.blocoDidatico 'pode apontar para bloco, mas e ambiguo'
+    nomenclatura.termosLegados.fatia -> nomenclatura.curso.modulo.aula.blocoDidatico.step 'pode apontar para step, mas e ambiguo'
+
+    estruturador -> nomenclatura.roteiroPedagogico 'nasce aqui: esqueleto curso/modulos'
+    planejador -> nomenclatura.roteiroPedagogico 'transforma: aulas do modulo ativo'
+    autor -> nomenclatura.roteiroPedagogico 'transforma: blocos didaticos e texto'
+    adaptador -> nomenclatura.lessonJson 'transforma: representacao visual e mapping'
+    diretor -> nomenclatura.lessonJson 'transforma: camera/timing final'
+    nomenclatura.lessonJson -> criticoAula 'le: aula pronta para critica'
+    criticoAula -> criticReportAula 'produz critic_report.json'
+  }
+}
+
+views {
+
+  view nomenclaturaCanonica of lousaV2.nomenclatura {
+    title 'Nomenclatura canonica - contencao e fronteiras'
+    description '''
+      Tela de nomes canonicos solicitada pelo GPT Web.
+
+      Contrato:
+      - contencao canonica: curso > modulos > aulas > blocos didaticos > steps;
+      - `beat` e `fatia` ficam como termos legados/sinonimos ambiguos;
+      - `bloco didatico` e `step` nao sao sinonimos;
+      - conteudo da coluna esquerda e texto pedagogico;
+      - representacao visual da coluna direita e forma visual, nao o texto.
+    '''
+
+    include *
+    include lousaV2.nomenclatura.**
+
+    style * {
+      color secondary
+      opacity 20%
+    }
+
+    style lousaV2.nomenclatura.curso, lousaV2.nomenclatura.curso.modulo, lousaV2.nomenclatura.curso.modulo.aula, lousaV2.nomenclatura.curso.modulo.aula.blocoDidatico, lousaV2.nomenclatura.curso.modulo.aula.blocoDidatico.step {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.nomenclatura.textoPedagogico {
+      color blue
+      opacity 100%
+      size md
+    }
+
+    style lousaV2.nomenclatura.representacaoVisual, lousaV2.nomenclatura.noFluxograma, lousaV2.nomenclatura.arestaTransicao {
+      color indigo
+      opacity 100%
+    }
+
+    style lousaV2.nomenclatura.termosLegados, lousaV2.nomenclatura.termosLegados.beat, lousaV2.nomenclatura.termosLegados.fatia {
+      color amber
+      opacity 100%
+    }
+
+    style lousaV2.nomenclatura.roteiroPedagogico, lousaV2.nomenclatura.lessonJson {
+      color muted
+      opacity 70%
+    }
+
+    autoLayout LeftRight
+  }
+
+  dynamic view nomenclaturaPipeline {
+    title 'Nomenclatura canonica - nascimento, leitura e transformacao'
+    description '''
+      Tela operacional: onde cada unidade nasce, quem le/transforma e quais
+      artefatos carregam os nomes canonicos.
+
+      Artefatos explicitados:
+      - `roteiro_pedagogico.json`: curso, modulos, aulas, blocos didaticos e texto pedagogico;
+      - `lesson.json`: aula pronta com steps, coluna esquerda, representacao visual e timing;
+      - `critic_report.json`: saida de critica quando aplicavel.
+    '''
+
+    lousaV2.fonte -> lousaV2.estruturador 'fonte vira curso + modulos' {
+      notes '''
+        Nasce o nivel `curso` e a lista inicial de `modulos`.
+      '''
+    }
+    lousaV2.estruturador -> lousaV2.nomenclatura.roteiroPedagogico 'escreve roteiro_pedagogico.json'
+    lousaV2.nomenclatura.roteiroPedagogico -> lousaV2.planejador 'le modulo ativo'
+    lousaV2.planejador -> lousaV2.nomenclatura.roteiroPedagogico 'transforma modulo em aulas'
+    lousaV2.nomenclatura.roteiroPedagogico -> lousaV2.autor 'le aula planejada'
+    lousaV2.autor -> lousaV2.nomenclatura.roteiroPedagogico 'preenche blocos didaticos e texto pedagogico'
+    lousaV2.autor -> lousaV2.nomenclatura.textoPedagogico 'conteudo da coluna esquerda'
+
+    lousaV2.nomenclatura.roteiroPedagogico -> lousaV2.adaptador 'le blocos didaticos'
+    lousaV2.adaptador -> lousaV2.nomenclatura.representacaoVisual 'define coluna direita'
+    lousaV2.adaptador -> lousaV2.nomenclatura.noFluxograma 'cria/seleciona nos do fluxograma'
+    lousaV2.adaptador -> lousaV2.nomenclatura.arestaTransicao 'cria/seleciona arestas/transicoes'
+    lousaV2.adaptador -> lousaV2.nomenclatura.lessonJson 'escreve lesson.json com steps + mapping visual'
+
+    lousaV2.nomenclatura.lessonJson -> lousaV2.diretor 'le lesson.json'
+    lousaV2.diretor -> lousaV2.nomenclatura.lessonJson 'transforma camera/timing, sem reescrever pedagogia'
+    lousaV2.nomenclatura.lessonJson -> lousaV2.criticoAula 'le quando aplicavel'
+    lousaV2.criticoAula -> lousaV2.criticReportAula 'produz critic_report.json'
+    lousaV2.criticReportAula -> lousaV2.condenadorAula 'le score, violations e send_back_to'
+
+    include lousaV2.nomenclatura with {
+      color muted
+      opacity 0%
+    }
+
+    style * {
+      color secondary
+      opacity 16%
+      size sm
+    }
+
+    style lousaV2.estruturador, lousaV2.planejador, lousaV2.autor, lousaV2.adaptador, lousaV2.diretor, lousaV2.criticoAula, lousaV2.condenadorAula {
+      opacity 100%
+    }
+
+    style lousaV2.estruturador, lousaV2.adaptador {
+      color amber
+    }
+
+    style lousaV2.planejador, lousaV2.autor, lousaV2.diretor, lousaV2.criticoAula, lousaV2.condenadorAula {
+      color green
+    }
+
+    style lousaV2.nomenclatura.roteiroPedagogico, lousaV2.nomenclatura.lessonJson, lousaV2.criticReportAula {
+      color indigo
+      opacity 100%
+      size md
+    }
+
+    style lousaV2.nomenclatura.textoPedagogico {
+      color blue
+      opacity 100%
+      size md
+    }
+
+    style lousaV2.nomenclatura.representacaoVisual, lousaV2.nomenclatura.noFluxograma, lousaV2.nomenclatura.arestaTransicao {
+      color indigo
+      opacity 100%
+    }
+  }
+}

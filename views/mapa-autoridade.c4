@@ -1,0 +1,88 @@
+views {
+
+  dynamic view mapaDoCursoAuthority {
+    title 'Mapa do Curso - autoridade de escrita e leitura em modo de apresentacao'
+    description '''
+      Narrativa de apresentacao:
+      1. A inicializa o Mapa do Curso.
+      2. B e C so consultam esse mapa, sem reescrever.
+      3. H consulta o mesmo mapa e devolve apenas alertas pequenos.
+      4. J aplica os patches como escritor unico.
+      5. I so le o estado consolidado para fechar o curso.
+
+      Contrato visual: apenas A e H propoem escrita; J efetiva o patch.
+    '''
+
+    lousaV2.fonte -> lousaV2.estruturador 'entrada ainda depende de extracao manual'
+    lousaV2.estruturador -> lousaV2.mapaCurso 'escrita 1/2 - nasce o curso em modo completo' {
+      notes '''
+        **Escritor autorizado #1**
+
+        O Estruturador de Curso cria os placeholders globais e define a forma
+        inicial do curso no `Mapa do Curso`, incluindo `modo_saida=completo`.
+      '''
+    }
+
+    parallel {
+      lousaV2.planejador <- lousaV2.mapaCurso 'DECIDIDO - so le: resumo local do modulo'
+      lousaV2.autor <- lousaV2.mapaCurso 'DECIDIDO - so le: indice global curto'
+    }
+
+    lousaV2.criticoCurso <- lousaV2.mapaCurso 'HYPOTHESIS - le: resumos, indice e alertas existentes'
+    lousaV2.criticoCurso -> lousaV2.mapaCurso 'escrita 2/2 - alertas_de_coerencia[]' {
+      notes '''
+        **Escritor autorizado #2**
+
+        O Critico de Coerencia nao reestrutura o curso; ele devolve patches
+        pequenos de coerencia global.
+      '''
+    }
+    lousaV2.orquestrador <- lousaV2.mapaCurso 'HYPOTHESIS - aplica o patch como escritor unico'
+    lousaV2.condenadorCurso <- lousaV2.mapaCurso 'HYPOTHESIS - so le: alertas abertos para emitir veredito'
+
+    style * {
+      color secondary
+      opacity 16%
+    }
+
+    style lousaV2.fonte {
+      color red
+      opacity 100%
+    }
+
+    style lousaV2.mapaCurso {
+      color amber
+      opacity 100%
+    }
+
+    style lousaV2.estruturador {
+      color red
+      opacity 100%
+    }
+
+    style lousaV2.planejador {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.autor {
+      color green
+      opacity 100%
+    }
+
+    style lousaV2.criticoCurso {
+      color amber
+      opacity 100%
+    }
+
+    style lousaV2.orquestrador {
+      color amber
+      opacity 100%
+    }
+
+    style lousaV2.condenadorCurso {
+      color amber
+      opacity 100%
+    }
+  }
+}
